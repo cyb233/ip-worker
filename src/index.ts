@@ -14,11 +14,18 @@
 interface IpInfo {
 	ip: string | null
 	asn: number | undefined
+	colo: string | undefined
 	continent: ContinentCode | undefined
 	country: Iso3166Alpha2Code | "T1" | undefined
+	city: string | undefined
+	isEUCountry: string | undefined
 	asOrganization: string | undefined
 	longitude: string | undefined
 	latitude: string | undefined
+	postalCode: string | undefined
+	region: string | undefined
+	regionCode: string | undefined
+	timezone: string | undefined
 }
 
 export default {
@@ -30,11 +37,18 @@ export default {
 		const json: IpInfo = {
 			ip: request.headers.get('CF-Connecting-IP'),
 			asn: cf?.asn,
+			colo: cf?.colo,
 			continent: cf?.continent,
 			country: cf?.country,
+			city: cf?.city,
+			isEUCountry: cf?.isEUCountry,
 			asOrganization: cf?.asOrganization,
 			longitude: cf?.longitude,
-			latitude: cf?.latitude
+			latitude: cf?.latitude,
+			postalCode: cf?.postalCode,
+			region: cf?.region,
+			regionCode: cf?.regionCode,
+			timezone: cf?.timezone
 		}
 		console.log(json)
 		switch (format) {
