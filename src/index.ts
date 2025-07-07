@@ -18,7 +18,7 @@ interface IpInfo {
 	continent: ContinentCode | undefined
 	country: Iso3166Alpha2Code | "T1" | undefined
 	city: string | undefined
-	isEUCountry: string | undefined
+	isEUCountry: "1" | undefined
 	asOrganization: string | undefined
 	longitude: string | undefined
 	latitude: string | undefined
