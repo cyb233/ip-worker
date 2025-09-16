@@ -10,111 +10,95 @@
  *
  * Learn more at https://developers.cloudflare.com/workers/
  */
+import { Hono, Context } from 'hono';
+import { logger } from 'hono/logger';
+import { requestId } from 'hono/request-id';
 
+import { toXml } from './utils';
 interface IpInfo {
-	ip: string | null
-	asn: number | undefined
-	colo: string | undefined
-	continent: ContinentCode | undefined
-	country: Iso3166Alpha2Code | "T1" | undefined
-	city: string | undefined
-	isEUCountry: "1" | undefined
-	asOrganization: string | undefined
-	longitude: string | undefined
-	latitude: string | undefined
-	postalCode: string | undefined
-	region: string | undefined
-	regionCode: string | undefined
-	timezone: string | undefined
+	ip: string | null;
+	asn: number | undefined;
+	colo: string | undefined;
+	continent: ContinentCode | undefined;
+	country: Iso3166Alpha2Code | 'T1' | undefined;
+	city: string | undefined;
+	isEUCountry: '1' | undefined;
+	asOrganization: string | undefined;
+	longitude: string | undefined;
+	latitude: string | undefined;
+	postalCode: string | undefined;
+	region: string | undefined;
+	regionCode: string | undefined;
+	timezone: string | undefined;
 }
 
-export default {
-	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		const url = new URL(request.url)
-		const format = url.searchParams.get("format")
-		const callback = url.searchParams.get("callback")
-		const cf = (request as Request).cf as IncomingRequestCfProperties | undefined
-		const json: IpInfo = {
-			ip: request.headers.get('CF-Connecting-IP'),
-			asn: cf?.asn,
-			colo: cf?.colo,
-			continent: cf?.continent,
-			country: cf?.country,
-			city: cf?.city,
-			isEUCountry: cf?.isEUCountry,
-			asOrganization: cf?.asOrganization,
-			longitude: cf?.longitude,
-			latitude: cf?.latitude,
-			postalCode: cf?.postalCode,
-			region: cf?.region,
-			regionCode: cf?.regionCode,
-			timezone: cf?.timezone
-		}
-		console.log(json)
-		switch (format) {
-			case 'json':
-				return new Response(JSON.stringify(json), { headers: { 'Content-Type': 'application/json' } })
-			case 'xml':
-				return new Response(toXml(json), { headers: { 'Content-Type': 'application/xml' } })
-			case 'jsonp':
-				if (callback) {
-					const jsonpResponse = `${callback}(${JSON.stringify(json)})`
-					return new Response(jsonpResponse, { headers: { 'Content-Type': 'application/javascript' } })
-				}
-				return new Response("Callback parameter is required for JSONP", { status: 400 })
-			case 'text':
-			default:
-				return new Response(json.ip ?? '', { headers: { 'Content-Type': 'text/plain' } })
-		}
-	},
-} satisfies ExportedHandler<Env>;
+const app = new Hono();
+app.use(logger(), requestId());
 
-/**
- * 对象转 XML 字符串
- */
-function toXml(obj: Record<string, any>): string {
-	let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<root>`
-	xml += objectToXml(obj)
-	xml += '</root>'
-	return xml
-}
-
-/**
- * 递归对象转 XML
- */
-function objectToXml(obj: Record<string, any>): string {
-	let xml = ''
-	for (const key in obj) {
-		const value = obj[key]
-		if (value === null || value === undefined) {
-			xml += `<${key}/>`
-		} else if (Array.isArray(value)) {
-			xml += `<${key}>`
-			for (const item of value) {
-				xml += `<item>${typeof item === 'object' ? objectToXml(item) : escapeXml(String(item))}</item>`
+app.all('/api', (c) => {
+	const { format, callback } = c.req.query();
+	const json = getIpInfo(c);
+	switch (format) {
+		case 'json':
+			return c.json(json);
+		case 'xml':
+			c.header('Content-Type', 'application/xml');
+			return c.body(toXml(json));
+		case 'jsonp':
+			if (callback) {
+				const jsonpResponse = `${callback}(${JSON.stringify(json)})`;
+				c.header('Content-Type', 'application/javascript');
+				return c.body(jsonpResponse);
 			}
-			xml += `</${key}>`
-		} else if (typeof value === 'object') {
-			xml += `<${key}>${objectToXml(value)}</${key}>`
-		} else {
-			xml += `<${key}>${escapeXml(String(value))}</${key}>`
-		}
+			return c.text('Callback parameter is required for JSONP', { status: 400 });
+		case 'text':
+		default:
+			return c.text(json.ip ?? '');
 	}
-	return xml
-}
+});
 
-/**
- * 转义 XML 特殊字符
- */
-function escapeXml(unsafe: string): string {
-	return unsafe.replace(/[<>&'"]/g, function (c) {
-		switch (c) {
-			case '<': return '&lt;'
-			case '>': return '&gt;'
-			case '&': return '&amp;'
-			case '\'': return '&apos;'
-			case '"': return '&quot;'
-			default: return c
-		}
-	})
+app.all('/api/text', (c) => {
+	const json = getIpInfo(c);
+	return c.text(json.ip ?? '');
+});
+app.all('/api/json', (c) => {
+	const json = getIpInfo(c);
+	return c.json(json);
+});
+app.all('/api/xml', (c) => {
+	const json = getIpInfo(c);
+	c.header('Content-Type', 'application/xml');
+	return c.body(toXml(json));
+});
+app.all('/api/jsonp/:callback', (c) => {
+	const { callback } = c.req.param();
+	const json = getIpInfo(c);
+	if (callback) {
+		const jsonpResponse = `${callback}(${JSON.stringify(json)})`;
+		c.header('Content-Type', 'application/javascript');
+		return c.body(jsonpResponse);
+	}
+	return c.text('Callback parameter is required for JSONP', { status: 400 });
+});
+
+export default app;
+
+function getIpInfo(c: Context): IpInfo {
+	const cf = c.req.raw.cf as IncomingRequestCfProperties;
+	return {
+		ip: c.req.raw.headers.get('CF-Connecting-IP'),
+		asn: cf.asn,
+		colo: cf.colo,
+		continent: cf.continent,
+		country: cf.country,
+		city: cf.city,
+		isEUCountry: cf.isEUCountry,
+		asOrganization: cf.asOrganization,
+		longitude: cf.longitude,
+		latitude: cf.latitude,
+		postalCode: cf.postalCode,
+		region: cf.region,
+		regionCode: cf.regionCode,
+		timezone: cf.timezone,
+	};
 }

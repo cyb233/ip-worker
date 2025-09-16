@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+
+<head>
+	<meta charset="UTF-8">
+	<title>IP 获取演示 - WebRTC & API</title>
+	<style>
+		body {
+			font-family: system-ui, sans-serif;
+			margin: 2em auto;
+			max-width: 700px;
+			line-height: 1.7;
+			color: #222;
+			background: #fafbfc;
+		}
+
+		h1,
+		h2 {
+			color: #2b6cb0;
+		}
+
+		pre {
+			background: #f4f4f4;
+			border-radius: 4px;
+			padding: 1em;
+			overflow-x: auto;
+			font-size: 0.97em;
+		}
+
+		section {
+			margin-bottom: 2em;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>IP 获取演示</h1>
+	<section>
+		<h2>WebRTC 获取本地 IP</h2>
+		<pre id="webrtc-ip">加载中...</pre>
+	</section>
+	<section>
+		<h2>API 获取 IP 信息</h2>
+		<pre id="api-json">加载中...</pre>
+	</section>
+	<script>
+		// WebRTC 获取本地 IP
+		function getWebRTCIp(callback) {
+			const ips = new Set();
+			const RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+			if (!RTCPeerConnection) {
+				callback(['不支持 WebRTC']);
+				return;
+			}
+			const pc = new RTCPeerConnection({ iceServers: [] });
+			pc.createDataChannel('');
+			pc.createOffer().then(offer => pc.setLocalDescription(offer));
+			pc.onicecandidate = (event) => {
+				if (!event || !event.candidate) {
+					callback(Array.from(ips));
+					return;
+				}
+				const parts = event.candidate.candidate.split(' ');
+				const ip = parts[4];
+				if (ip && !ips.has(ip)) {
+					ips.add(ip);
+				}
+			};
+		}
+		getWebRTCIp(function (ipList) {
+			document.getElementById('webrtc-ip').textContent = ipList.length ? ipList.join('\n') : '未获取到 IP';
+		});
+
+		// API 获取 IP 信息
+		fetch('/api?format=json')
+			.then(r => r.json())
+			.then(data => {
+				document.getElementById('api-json').textContent = JSON.stringify(data, null, 2)
+			})
+			.catch(() => {
+				document.getElementById('api-json').textContent = '获取失败'
+			});
+	</script>
+</body>
+
+</html>
