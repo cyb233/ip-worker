@@ -19,12 +19,21 @@
       color: #2b6cb0;
     }
 
-    pre {
-      background: #f4f4f4;
-      border-radius: 4px;
-      padding: 1em;
-      overflow-x: auto;
-      font-size: 0.97em;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1em;
+    }
+
+    th,
+    td {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f2f2f2;
     }
 
     section {
@@ -38,7 +47,7 @@
   <h1>IP 获取演示</h1>
   <section>
     <h2>WebRTC 获取本地 IP</h2>
-    <pre id="webrtc-ip">加载中...</pre>
+    <div id="webrtc-ip">加载中...</div>
   </section>
   <section>
     <h2>API 获取 IP 信息</h2>
@@ -79,14 +88,11 @@
             return;
           }
 
-          console.trace(event.candidate);
-          if (event.candidate.type === 'srflx' || event.candidate.candidate.includes('srflx')) {
-            const parts = event.candidate.candidate.split(' ');
-            const ip = parts[4];
-            if (ip) {
-              const natType = inferNatType(event.candidate.type);
-              ips.push({ ip, natType });
-            }
+          console.debug(event.candidate);
+          const ip = event.candidate.address;
+          if (ip) {
+            const natType = inferNatType(event.candidate.type);
+            ips.push({ ip, natType });
           }
         };
       });
@@ -109,11 +115,45 @@
     }
 
     getAllStunIps().then(results => {
-      const output = results.map(r => {
-        return `${r.provider}:\n${r.ips.length ? r.ips.map(entry => `${entry.ip} - ${entry.natType}`).join('\n') : '未获取到 IP'}`;
-      }).join('\n\n');
-      document.getElementById('webrtc-ip').textContent = output;
+      const table = document.createElement('table');
+      const header = document.createElement('thead');
+      header.innerHTML = `<tr>
+                            <th>提供者</th>
+                            <th>IP 地址</th>
+                            <th>NAT 类型</th>
+                          </tr>`;
+      table.appendChild(header);
+
+      const tbody = document.createElement('tbody');
+      let lastProvider = '';
+      let providerCount = 0;
+
+      results.forEach(result => {
+        if (result.ips.length === 0) {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td rowspan="1">${result.provider}</td><td colspan="2">未获取到 IP</td>`;
+          tbody.appendChild(row);
+        } else {
+          result.ips.forEach((entry, index) => {
+            const row = document.createElement('tr');
+            if (result.provider === lastProvider) {
+              row.innerHTML = `<td>${entry.ip}</td><td>${entry.natType}</td>`;
+            } else {
+              providerCount = result.ips.length;
+              row.innerHTML = `<td rowspan="${providerCount}">${result.provider}</td><td>${entry.ip}</td><td>${entry.natType}</td>`;
+            }
+            lastProvider = result.provider;
+            tbody.appendChild(row);
+          });
+        }
+      });
+
+      table.appendChild(tbody);
+      const webrtcIpDiv = document.getElementById('webrtc-ip');
+      webrtcIpDiv.innerHTML = '';
+      webrtcIpDiv.appendChild(table);
     });
+
 
     // API 获取 IP 信息
     fetch('/api?format=json')
