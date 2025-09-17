@@ -38,46 +38,12 @@ app.use(logger(), requestId(), trimTrailingSlash());
 
 app.all('/api', (c) => {
   const { format, callback } = c.req.query();
-  const json = getIpInfo(c);
-  switch (format) {
-    case 'json':
-      return c.json(json);
-    case 'xml':
-      c.header('Content-Type', 'application/xml');
-      return c.body(toXml(json));
-    case 'jsonp':
-      if (callback) {
-        const jsonpResponse = `${callback}(${JSON.stringify(json)})`;
-        c.header('Content-Type', 'application/javascript');
-        return c.body(jsonpResponse);
-      }
-      return c.text('Callback parameter is required for JSONP', { status: 400 });
-    case 'text':
-    default:
-      return c.text(json.ip ?? '');
-  }
+  return getIpResp(c, format, callback);
 });
 
 app.all('/api/:format/:callback?', (c) => {
   const { format, callback } = c.req.param();
-  const json = getIpInfo(c);
-  switch (format) {
-    case 'json':
-      return c.json(json);
-    case 'xml':
-      c.header('Content-Type', 'application/xml');
-      return c.body(toXml(json));
-    case 'jsonp':
-      if (callback) {
-        const jsonpResponse = `${callback}(${JSON.stringify(json)})`;
-        c.header('Content-Type', 'application/javascript');
-        return c.body(jsonpResponse);
-      }
-      return c.text('Callback parameter is required for JSONP', { status: 400 });
-    case 'text':
-    default:
-      return c.text(json.ip ?? '');
-  }
+  return getIpResp(c, format, callback);
 });
 
 export default app;
@@ -100,4 +66,25 @@ function getIpInfo(c: Context): IpInfo {
     regionCode: cf.regionCode,
     timezone: cf.timezone,
   };
+}
+
+function getIpResp(c: Context, format: string, callback?: string): Response {
+  const json = getIpInfo(c);
+  switch (format) {
+    case 'json':
+      return c.json(json);
+    case 'xml':
+      c.header('Content-Type', 'application/xml');
+      return c.body(toXml(json));
+    case 'jsonp':
+      if (callback) {
+        const jsonpResponse = `${callback}(${JSON.stringify(json)})`;
+        c.header('Content-Type', 'application/javascript');
+        return c.body(jsonpResponse);
+      }
+      return c.text('Callback parameter is required for JSONP', { status: 400 });
+    case 'text':
+    default:
+      return c.text(json.ip ?? '');
+  }
 }
