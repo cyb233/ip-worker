@@ -44,10 +44,8 @@
     <h2>API 获取 IP 信息</h2>
     <pre id="api-json">加载中...</pre>
   </section>
+
   <script>
-    // 配置多个 STUN 服务器及对应标签
-    // https://gist.github.com/mondain/b0ec1cf5f60ae726202e
-    // https://github.com/pradt2/always-online-stun/blob/master/valid_hosts.txt
     const stunServers = [
       { provider: 'Google', urls: 'stun:stun.l.google.com:19302' },
       { provider: 'Cloudflare', urls: 'stun:stun.cloudflare.com:3478' },
@@ -60,11 +58,12 @@
       return new Promise((resolve) => {
         const RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
         if (!RTCPeerConnection) {
-          resolve({ provider: serverConfig.provider, ips: ['不支持 WebRTC'] });
+          resolve({ provider: serverConfig.provider, ips: ['不支持 WebRTC'], natType: '未知' });
           return;
         }
 
         const ips = new Set();
+        const candidateTypes = new Set();
         const pc = new RTCPeerConnection({ iceServers: serverConfig.urls ? [serverConfig] : [] });
         pc.createDataChannel('');
         pc.createOffer().then(offer => pc.setLocalDescription(offer));
@@ -72,7 +71,11 @@
         pc.onicecandidate = (event) => {
           if (!event || !event.candidate) {
             pc.close();
-            resolve({ provider: serverConfig.provider, ips: Array.from(ips) });
+            resolve({
+              provider: serverConfig.provider,
+              ips: Array.from(ips),
+              natType: inferNatType(candidateTypes)
+            });
             return;
           }
           if (event.candidate.type === 'srflx' || event.candidate.candidate.includes('srflx')) {
@@ -80,8 +83,22 @@
             const ip = parts[4];
             if (ip) ips.add(ip);
           }
+          candidateTypes.add(event.candidate.type);
         };
       });
+    }
+
+    function inferNatType(candidateTypes) {
+      if (candidateTypes.has('srflx') && candidateTypes.has('relay')) {
+        return '对称 NAT (Symmetric NAT)';
+      }
+      if (candidateTypes.has('srflx')) {
+        return '受限锥形 NAT (Restricted Cone NAT)';
+      }
+      if (candidateTypes.has('host')) {
+        return '全锥形 NAT (Full Cone NAT)';
+      }
+      return '未知 NAT 类型';
     }
 
     async function getAllStunIps() {
@@ -91,7 +108,7 @@
 
     getAllStunIps().then(results => {
       const output = results.map(r => {
-        return `${r.provider}:\n${r.ips.length ? r.ips.join('\n') : '未获取到 IP'}`
+        return `${r.provider}:\n${r.ips.length ? r.ips.join('\n') : '未获取到 IP'}\n${r.natType}`;
       }).join('\n\n');
       document.getElementById('webrtc-ip').textContent = output;
     });
