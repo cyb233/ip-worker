@@ -50,6 +50,31 @@
     <div id="webrtc-ip">加载中...</div>
   </section>
   <section>
+    <h2>NAT 类型说明</h2>
+    <ul>
+      <li>
+        <strong><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/RTCIceCandidate/type#host" target="_blank">全锥形 NAT (Full Cone NAT)</a></strong>：
+        所有外部主机都能通过映射的端口访问内部主机。
+      </li>
+      <li>
+        <strong><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/RTCIceCandidate/type#srflx" target="_blank">受限锥形 NAT (Restricted Cone NAT)</a></strong>：
+        外部主机只有在发送过数据给内部主机后，才能访问内部主机的端口。
+      </li>
+      <li>
+        <strong><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/RTCIceCandidate/type#prflx" target="_blank">端口受限 NAT (Port Restricted NAT)</a></strong>：
+        外部主机只有在发送过数据给内部主机指定端口后，才能访问该端口。
+      </li>
+      <li>
+        <strong><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/RTCIceCandidate/type#relay" target="_blank">对称 NAT (Symmetric NAT)</a></strong>：
+        不同外部地址映射不同端口，通常无法直接建立 P2P 连接，需要中继 (relay)。
+      </li>
+      <li>
+        <strong>未知 NAT 类型</strong>：
+        无法确定 NAT 类型。
+      </li>
+    </ul>
+  </section>
+  <section>
     <h2>API 获取 IP 信息</h2>
     <pre id="api-json">加载中...</pre>
   </section>
