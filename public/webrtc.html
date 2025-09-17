@@ -84,7 +84,7 @@
             const parts = event.candidate.candidate.split(' ');
             const ip = parts[4];
             if (ip) {
-              const natType = inferNatType(new Set([event.candidate.type]));
+              const natType = inferNatType(event.candidate.type);
               ips.push({ ip, natType });
             }
           }
@@ -92,7 +92,7 @@
       });
     }
 
-    function inferNatType(candidateTypes) {
+    function inferNatType(candidateType) {
       // https://developer.mozilla.org/zh-CN/docs/Web/API/RTCIceCandidate/type
       const natTypes = {
         'host': '全锥形 NAT (Full Cone NAT)',
@@ -100,12 +100,7 @@
         'prflx': '端口受限 NAT (Port Restricted NAT)',
         'relay': '对称 NAT (Symmetric NAT)'
       };
-      for (const type of Object.keys(natTypes)) {
-        if (candidateTypes.has(type)) {
-          return natTypes[type];
-        }
-      }
-      return '未知 NAT 类型';
+      return natTypes[candidateType] || '未知 NAT 类型';
     }
 
     async function getAllStunIps() {
