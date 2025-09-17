@@ -14,7 +14,6 @@ import { Hono, Context } from 'hono';
 import { logger } from 'hono/logger';
 import { requestId } from 'hono/request-id';
 import { trimTrailingSlash } from 'hono/trailing-slash';
-import { getConnInfo } from 'hono/cloudflare-workers';
 
 import { toXml } from './utils';
 interface IpInfo {
@@ -36,12 +35,6 @@ interface IpInfo {
 
 const app = new Hono();
 app.use(logger(), requestId(), trimTrailingSlash());
-
-app.all('/test', (c) => {
-	const connInfo = getConnInfo(c);
-	console.log(connInfo);
-  return c.json(connInfo);
-});
 
 app.all('/api', (c) => {
   const { format, callback } = c.req.query();
