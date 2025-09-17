@@ -13,92 +13,98 @@
 import { Hono, Context } from 'hono';
 import { logger } from 'hono/logger';
 import { requestId } from 'hono/request-id';
+import { trimTrailingSlash } from 'hono/trailing-slash';
+import { getConnInfo } from 'hono/cloudflare-workers';
 
 import { toXml } from './utils';
 interface IpInfo {
-	ip: string | null;
-	asn: number | undefined;
-	colo: string | undefined;
-	continent: ContinentCode | undefined;
-	country: Iso3166Alpha2Code | 'T1' | undefined;
-	city: string | undefined;
-	isEUCountry: '1' | undefined;
-	asOrganization: string | undefined;
-	longitude: string | undefined;
-	latitude: string | undefined;
-	postalCode: string | undefined;
-	region: string | undefined;
-	regionCode: string | undefined;
-	timezone: string | undefined;
+  ip: string | null;
+  asn: number | undefined;
+  colo: string | undefined;
+  continent: ContinentCode | undefined;
+  country: Iso3166Alpha2Code | 'T1' | undefined;
+  city: string | undefined;
+  isEUCountry: '1' | undefined;
+  asOrganization: string | undefined;
+  longitude: string | undefined;
+  latitude: string | undefined;
+  postalCode: string | undefined;
+  region: string | undefined;
+  regionCode: string | undefined;
+  timezone: string | undefined;
 }
 
 const app = new Hono();
-app.use(logger(), requestId());
+app.use(logger(), requestId(), trimTrailingSlash());
+
+app.all('/test', (c) => {
+	const connInfo = getConnInfo(c);
+	console.log(connInfo);
+  return c.json(connInfo);
+});
 
 app.all('/api', (c) => {
-	const { format, callback } = c.req.query();
-	const json = getIpInfo(c);
-	switch (format) {
-		case 'json':
-			return c.json(json);
-		case 'xml':
-			c.header('Content-Type', 'application/xml');
-			return c.body(toXml(json));
-		case 'jsonp':
-			if (callback) {
-				const jsonpResponse = `${callback}(${JSON.stringify(json)})`;
-				c.header('Content-Type', 'application/javascript');
-				return c.body(jsonpResponse);
-			}
-			return c.text('Callback parameter is required for JSONP', { status: 400 });
-		case 'text':
-		default:
-			return c.text(json.ip ?? '');
-	}
+  const { format, callback } = c.req.query();
+  const json = getIpInfo(c);
+  switch (format) {
+    case 'json':
+      return c.json(json);
+    case 'xml':
+      c.header('Content-Type', 'application/xml');
+      return c.body(toXml(json));
+    case 'jsonp':
+      if (callback) {
+        const jsonpResponse = `${callback}(${JSON.stringify(json)})`;
+        c.header('Content-Type', 'application/javascript');
+        return c.body(jsonpResponse);
+      }
+      return c.text('Callback parameter is required for JSONP', { status: 400 });
+    case 'text':
+    default:
+      return c.text(json.ip ?? '');
+  }
 });
 
-app.all('/api/text', (c) => {
-	const json = getIpInfo(c);
-	return c.text(json.ip ?? '');
-});
-app.all('/api/json', (c) => {
-	const json = getIpInfo(c);
-	return c.json(json);
-});
-app.all('/api/xml', (c) => {
-	const json = getIpInfo(c);
-	c.header('Content-Type', 'application/xml');
-	return c.body(toXml(json));
-});
-app.all('/api/jsonp/:callback', (c) => {
-	const { callback } = c.req.param();
-	const json = getIpInfo(c);
-	if (callback) {
-		const jsonpResponse = `${callback}(${JSON.stringify(json)})`;
-		c.header('Content-Type', 'application/javascript');
-		return c.body(jsonpResponse);
-	}
-	return c.text('Callback parameter is required for JSONP', { status: 400 });
+app.all('/api/:format/:callback?', (c) => {
+  const { format, callback } = c.req.param();
+  const json = getIpInfo(c);
+  switch (format) {
+    case 'json':
+      return c.json(json);
+    case 'xml':
+      c.header('Content-Type', 'application/xml');
+      return c.body(toXml(json));
+    case 'jsonp':
+      if (callback) {
+        const jsonpResponse = `${callback}(${JSON.stringify(json)})`;
+        c.header('Content-Type', 'application/javascript');
+        return c.body(jsonpResponse);
+      }
+      return c.text('Callback parameter is required for JSONP', { status: 400 });
+    case 'text':
+    default:
+      return c.text(json.ip ?? '');
+  }
 });
 
 export default app;
 
 function getIpInfo(c: Context): IpInfo {
-	const cf = c.req.raw.cf as IncomingRequestCfProperties;
-	return {
-		ip: c.req.raw.headers.get('CF-Connecting-IP'),
-		asn: cf.asn,
-		colo: cf.colo,
-		continent: cf.continent,
-		country: cf.country,
-		city: cf.city,
-		isEUCountry: cf.isEUCountry,
-		asOrganization: cf.asOrganization,
-		longitude: cf.longitude,
-		latitude: cf.latitude,
-		postalCode: cf.postalCode,
-		region: cf.region,
-		regionCode: cf.regionCode,
-		timezone: cf.timezone,
-	};
+  const cf = c.req.raw.cf as IncomingRequestCfProperties;
+  return {
+    ip: c.req.raw.headers.get('CF-Connecting-IP'),
+    asn: cf.asn,
+    colo: cf.colo,
+    continent: cf.continent,
+    country: cf.country,
+    city: cf.city,
+    isEUCountry: cf.isEUCountry,
+    asOrganization: cf.asOrganization,
+    longitude: cf.longitude,
+    latitude: cf.latitude,
+    postalCode: cf.postalCode,
+    region: cf.region,
+    regionCode: cf.regionCode,
+    timezone: cf.timezone,
+  };
 }

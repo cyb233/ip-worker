@@ -44,43 +44,68 @@
 		<pre id="api-json">加载中...</pre>
 	</section>
 	<script>
-		// WebRTC 获取本地 IP
-		function getWebRTCIp(callback) {
-			const ips = new Set();
-			const RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
-			if (!RTCPeerConnection) {
-				callback(['不支持 WebRTC']);
-				return;
-			}
-			const pc = new RTCPeerConnection({ iceServers: [] });
-			pc.createDataChannel('');
-			pc.createOffer().then(offer => pc.setLocalDescription(offer));
-			pc.onicecandidate = (event) => {
-				if (!event || !event.candidate) {
-					callback(Array.from(ips));
+		// 配置多个 STUN 服务器及对应标签
+		// https://gist.github.com/mondain/b0ec1cf5f60ae726202e
+		// https://github.com/pradt2/always-online-stun/blob/master/valid_hosts.txt
+		const stunServers = [
+			{ provider: 'localhost' },
+			{ provider: 'Google', urls: 'stun:stun.l.google.com:19302' },
+			{ provider: 'Cloudflare', urls: 'stun:stun.cloudflare.com:3478' },
+			{ provider: 'XiaoMi', urls: 'stun:stun.miwifi.com:3478' },
+			{ provider: 'Bilibili', urls: 'stun:stun.chat.bilibili.com:3478' },
+			{ provider: 'Nextcloud', urls: 'stun:stun.nextcloud.com:3478' }
+		];
+
+		async function getIpFromStun(serverConfig) {
+			return new Promise((resolve) => {
+				const RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+				if (!RTCPeerConnection) {
+					resolve({ provider: serverConfig.provider, ips: ['不支持 WebRTC'] });
 					return;
 				}
-				const parts = event.candidate.candidate.split(' ');
-				const ip = parts[4];
-				if (ip && !ips.has(ip)) {
-					ips.add(ip);
-				}
-			};
+
+				const ips = new Set();
+				const pc = new RTCPeerConnection({ iceServers: serverConfig.urls ? [serverConfig] : [] });
+				pc.createDataChannel('');
+				pc.createOffer().then(offer => pc.setLocalDescription(offer));
+
+				pc.onicecandidate = (event) => {
+					if (!event || !event.candidate) {
+						resolve({ provider: serverConfig.provider, ips: Array.from(ips) });
+						return;
+					}
+					if (event.candidate.type === 'srflx' || event.candidate.candidate.includes('srflx')) {
+						const parts = event.candidate.candidate.split(' ');
+						const ip = parts[4];
+						if (ip) ips.add(ip);
+					}
+				};
+			});
 		}
-		getWebRTCIp(function (ipList) {
-			document.getElementById('webrtc-ip').textContent = ipList.length ? ipList.join('\n') : '未获取到 IP';
+
+		async function getAllStunIps() {
+			const results = await Promise.all(stunServers.map(server => getIpFromStun(server)));
+			return results;
+		}
+
+		getAllStunIps().then(results => {
+			const output = results.map(r => {
+				return `${r.provider}:\n${r.ips.length ? r.ips.join('\n') : '未获取到 IP'}`
+			}).join('\n\n');
+			document.getElementById('webrtc-ip').textContent = output;
 		});
 
 		// API 获取 IP 信息
 		fetch('/api?format=json')
 			.then(r => r.json())
 			.then(data => {
-				document.getElementById('api-json').textContent = JSON.stringify(data, null, 2)
+				document.getElementById('api-json').textContent = JSON.stringify(data, null, 2);
 			})
 			.catch(() => {
-				document.getElementById('api-json').textContent = '获取失败'
+				document.getElementById('api-json').textContent = '获取失败';
 			});
 	</script>
+
 </body>
 
 </html>
