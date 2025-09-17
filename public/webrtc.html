@@ -78,6 +78,7 @@
             });
             return;
           }
+					console.log(event.candidate);
           if (event.candidate.type === 'srflx' || event.candidate.candidate.includes('srflx')) {
             const parts = event.candidate.candidate.split(' ');
             const ip = parts[4];
