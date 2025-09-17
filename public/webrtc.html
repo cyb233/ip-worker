@@ -89,7 +89,7 @@
           }
 
           console.debug(event.candidate);
-          const ip = event.candidate.address;
+          const ip = (event.candidate.address || '').replace(/^\[|\]$/g, '');
           if (ip) {
             const natType = inferNatType(event.candidate.type);
             ips.push({ ip, natType });
