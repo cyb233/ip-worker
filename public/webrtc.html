@@ -108,6 +108,7 @@
             pc.close();
             resolve({
               provider: serverConfig.provider,
+              urls: serverConfig.urls,
               ips: ips
             });
             return;
@@ -165,7 +166,9 @@
               row.innerHTML = `<td>${entry.ip}</td><td>${entry.natType}</td>`;
             } else {
               providerCount = result.ips.length;
-              row.innerHTML = `<td rowspan="${providerCount}">${result.provider}</td><td>${entry.ip}</td><td>${entry.natType}</td>`;
+              row.innerHTML = `<td rowspan="${providerCount}" title="${result.urls}">${result.provider}</td>
+                 <td>${entry.ip}</td>
+                 <td>${entry.natType}</td>`;
             }
             lastProvider = result.provider;
             tbody.appendChild(row);
