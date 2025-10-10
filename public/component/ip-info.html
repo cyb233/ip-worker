@@ -65,8 +65,8 @@
               this.ipInfo = formattedXml;
             case 'jsonp':
               const jsonp = await response.text();
-              const { formattedJsonp, serializedJsonp } = this.formatJSONP(jsonp)
-              this.ip = serializedJsonp.ip
+              const { formattedJsonp, parsedJson } = this.formatJSONP(jsonp)
+              this.ip = parsedJson.ip
               this.ipInfo = formattedJsonp;
             case 'text':
             default:
@@ -183,7 +183,7 @@
             ? xmlDeclarationMatch[0].trim() + "\n"
             : '';
 
-          return { format: xmlDeclaration + serialize(doc, 0), doc };
+          return { formattedXml: xmlDeclaration + serialize(doc, 0), doc };
         },
         formatJSONP(str, indent = 2) {
           const match = str.trim().match(/^([\w$.]+)\(([\s\S]*)\)(;?)$/);
@@ -196,10 +196,10 @@
             json = JSON.parse(jsonText);
             formattedJSON = JSON.stringify(json, null, indent);
           } catch {
-            return { format: str, json }; // JSON 不合法则直接返回原样
+            return { formattedJsonp: str, json }; // JSON 不合法则直接返回原样
           }
 
-          return { format: `${func}(${formattedJSON})${semicolon}`, json };
+          return { format: `${func}(${formattedJSON})${semicolon}`, parsedJson: json };
         }
       }
     };
