@@ -54,26 +54,29 @@
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`)
           }
+          const text = await response.text();
+          console.debug(format, callbackName, text);
           switch (format) {
             case 'json':
-              const json = await response.json();
+              const json = JSON.parse(text);
               this.ip = json.ip
               this.ipInfo = JSON.stringify(json, null, 2);
+              return;
             case 'xml':
-              const xml = await response.text();
-              const { formattedXml, doc } = this.formatXML(xml);
+              const { formattedXml, doc } = this.formatXML(text);
               this.ip = doc.querySelector('ip').textContent
               this.ipInfo = formattedXml;
+              return;
             case 'jsonp':
-              const jsonp = await response.text();
-              const { formattedJsonp, parsedJson } = this.formatJSONP(jsonp)
+              const { formattedJsonp, parsedJson } = this.formatJSONP(text)
               this.ip = parsedJson.ip
               this.ipInfo = formattedJsonp;
+              return;
             case 'text':
             default:
-              const text = await response.text();
               this.ip = text
               this.ipInfo = text;
+              return;
           }
         },
         formatXML(xml, indentSize = 2) {

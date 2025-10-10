@@ -17,58 +17,66 @@
   <o-app src="./app-config.mjs">
     <template page>
       <link rel="stylesheet" href="./css/public.css" />
-      <h1>IP Worker 接口说明</h1>
-      <p>本服务可获取访问者的 <b>IP</b> 及相关地理信息，支持多种格式返回。</p>
-      <h2>接口地址</h2>
-      <ul>
-        <li><b>IPv4/IPv6：</b> <code :text="host46"></code></li>
-        <li><b>仅 IPv4：</b> <code :text="host4"></code></li>
-        <li><b>仅 IPv6：</b> <code :text="host6"></code></li>
-        <li><b>WebRTC相关：</b> <a href="/webrtc" olink><code>/webrtc</code></a></li>
-      </ul>
-      <h2>用法示例</h2>
-      <p>通过 <code>?format=</code> 参数或路径选择返回格式：</p>
-      <ul>
-        <li class="demo-link">
-          <a href="/api?format=json"><code>/api?format=json</code></a>
-          /
-          <a href="/api/json"><code>/api/json</code></a>
-          <small>JSON</small>
-        </li>
-        <li class="demo-link">
-          <a href="/api?format=xml"><code>/api?format=xml</code></a>
-          /
-          <a href="/api/xml"><code>/api/xml</code></a>
-          <small>XML</small>
-        </li>
-        <li class="demo-link">
-          <a href="/api?format=jsonp&callback=foo"><code>/api?format=jsonp&callback=foo</code></a>
-          /
-          <a href="/api/jsonp/foo"><code>/api/jsonp/foo</code></a>
-          <small>JSONP</small>
-        </li>
-        <li class="demo-link">
-          <a href="/api"><code>/api</code></a>
-          /
-          <a href="/api?format=text"><code>/api?format=text</code></a>
-          /
-          <a href="/api/text"><code>/api/text</code></a>
-          <small>纯文本</small>
-        </li>
-      </ul>
-      <h3>支持格式</h3>
-      <ul>
-        <li><code>json</code>：JSON 对象</li>
-        <li><code>xml</code>：XML 文档</li>
-        <li><code>jsonp</code>：JSONP，需 <code>callback</code> 参数</li>
-        <li><code>text</code> 或无参数：仅 IP 字符串</li>
-      </ul>
-      <h2>返回字段</h2>
-      <pre :text="example"></pre>
-      <h2>请求示例</h2>
-      <l-m src="./component/ip-info.html"></l-m>
-      <ip-info></ip-info>
+      <header>
+        <h1>IP Worker 接口说明</h1>
+        <p>本服务可获取访问者的 <b>IP</b> 及相关地理信息，支持多种格式返回。</p>
+      </header>
+      <main>
+        <h2>接口地址</h2>
+        <ul>
+          <li><b>IPv4/IPv6：</b> <code :text="host46"></code></li>
+          <li><b>仅 IPv4：</b> <code :text="host4"></code></li>
+          <li><b>仅 IPv6：</b> <code :text="host6"></code></li>
+          <li><b>WebRTC相关：</b> <a href="/webrtc" olink><code>/webrtc</code></a></li>
+        </ul>
+        <h2>用法示例</h2>
+        <p>通过 <code>?format=</code> 参数或路径选择返回格式：</p>
+        <ul>
+          <li class="demo-link">
+            <a href="/api?format=json"><code>/api?format=json</code></a>
+            /
+            <a href="/api/json"><code>/api/json</code></a>
+            <small>JSON</small>
+          </li>
+          <li class="demo-link">
+            <a href="/api?format=xml"><code>/api?format=xml</code></a>
+            /
+            <a href="/api/xml"><code>/api/xml</code></a>
+            <small>XML</small>
+          </li>
+          <li class="demo-link">
+            <a href="/api?format=jsonp&callback=foo"><code>/api?format=jsonp&callback=foo</code></a>
+            /
+            <a href="/api/jsonp/foo"><code>/api/jsonp/foo</code></a>
+            <small>JSONP</small>
+          </li>
+          <li class="demo-link">
+            <a href="/api"><code>/api</code></a>
+            /
+            <a href="/api?format=text"><code>/api?format=text</code></a>
+            /
+            <a href="/api/text"><code>/api/text</code></a>
+            <small>纯文本</small>
+          </li>
+        </ul>
+        <h3>支持格式</h3>
+        <ul>
+          <li><code>json</code>：JSON 对象</li>
+          <li><code>xml</code>：XML 文档</li>
+          <li><code>jsonp</code>：JSONP，需 <code>callback</code> 参数</li>
+          <li><code>text</code> 或无参数：仅 IP 字符串</li>
+        </ul>
+        <h2>返回字段</h2>
+        <pre :text="example"></pre>
+        <h2>请求示例</h2>
+        <l-m src="./component/ip-info.html"></l-m>
+        <ip-info></ip-info>
+      </main>
       <footer>
+        <div>
+          <l-m src="./component/shields-badge.html"></l-m>
+          <shields-badge href="https://github.com/cyb233/ip-worker" path="github/stars/cyb233/ip-worker" query="maxAge=0" alt="GitHub Repo stars"></shields-badge>
+        </div>
         Powered by <a href="https://workers.cloudflare.com/" target="_blank">Cloudflare Workers</a>
       </footer>
 

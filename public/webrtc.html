@@ -18,44 +18,65 @@
     <template page>
       <link rel="stylesheet" href="./css/public.css" />
       <a href="/" olink>返回</a>
-      <h1>IP 获取演示</h1>
-      <section>
-        <h2>WebRTC 获取 IP</h2>
-        <table style="border: 1px;" cellspacing="0" cellpadding="4">
-          <thead>
-            <tr>
-              <th>Provider</th>
-              <th>IP</th>
-              <th>NAT Type</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template is="replace-temp">
-              <x-fill :value="stunResults" name="stunResultRow"></x-fill>
-            </template>
-          </tbody>
-        </table>
-      </section>
-      <section>
-        <h2>NAT 类型说明</h2>
-        <ul>
-          <x-fill :value="natTypes">
+      <header>
+        <h1>IP 获取演示 - WebRTC & API</h1>
+        <p>本服务可获取访问者的 <b>IP</b> 及相关地理信息，支持多种格式返回。</p>
+        <p>本页面展示了通过WebRTC功能获取到的IP，如果您安装了禁用WebRTC的插件，可以暂时关闭以查看结果</p>
+      </header>
+      <main>
+        <h2>IP 获取演示</h2>
+        <section>
+          <h2>WebRTC 获取 IP</h2>
+          <x-if :value="stunResults.length">
+            <table style="border: 1px;" cellspacing="0" cellpadding="4">
+              <thead>
+                <tr>
+                  <th>STUN服务提供商</th>
+                  <th>IP</th>
+                  <th>NAT类型</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template is="replace-temp">
+                  <x-fill :value="stunResults" name="stunResultRow"></x-fill>
+                </template>
+              </tbody>
+            </table>
+          </x-if>
+          <x-else>
+            <x-fill :value="errorReason">
+              <p style="color: red;" :text="$data"></p>
+            </x-fill>
+          </x-else>
+        </section>
+        <section>
+          <h2>NAT 类型说明</h2>
+          <ul>
+            <x-fill :value="natTypes">
+              <li>
+                <strong><a attr:href="$data.src" target="_blank">{{$data.name}}</a></strong>：
+                {{$data.desc}}
+              </li>
+            </x-fill>
             <li>
-              <strong><a attr:href="$data.src" target="_blank">{{$data.name}}</a></strong>：
-              {{$data.desc}}
+              <strong>未知 NAT 类型</strong>：
+              无法确定 NAT 类型。
             </li>
-          </x-fill>
-          <li>
-            <strong>未知 NAT 类型</strong>：
-            无法确定 NAT 类型。
-          </li>
-        </ul>
-      </section>
-      <section>
-        <h2>API 获取 IP 信息</h2>
-        <l-m src="./component/ip-info.html"></l-m>
-        <ip-info></ip-info>
-      </section>
+          </ul>
+        </section>
+        <section>
+          <h2>API 获取 IP 信息</h2>
+          <l-m src="./component/ip-info.html"></l-m>
+          <ip-info></ip-info>
+        </section>
+      </main>
+      <footer>
+        <div>
+          <l-m src="./component/shields-badge.html"></l-m>
+          <shields-badge href="https://github.com/cyb233/ip-worker" path="github/stars/cyb233/ip-worker" query="maxAge=0" alt="GitHub Repo stars"></shields-badge>
+        </div>
+        Powered by <a href="https://workers.cloudflare.com/" target="_blank">Cloudflare Workers</a>
+      </footer>
 
       <template name="stunResultRow">
         <tr>
@@ -85,21 +106,26 @@
               { type: 'prflx', name: '端口受限 NAT (Port Restricted NAT)', desc: '外部主机只有在发送过数据给内部主机指定端口后，才能访问该端口。', src: 'https://developer.mozilla.org/zh-CN/docs/Web/API/RTCIceCandidate/type#prflx' },
               { type: 'relay', name: '对称 NAT (Symmetric NAT)', desc: '不同外部地址映射不同端口，通常无法直接建立 P2P 连接，需要中继 (relay)。', src: 'https://developer.mozilla.org/zh-CN/docs/Web/API/RTCIceCandidate/type#relay' },
             ],
-            stunResults: []
+            stunResults: [],
+            errorReason: [],
           },
           ready() {
-            console.log('ready');
             this.getAllStunIps();
           },
           proto: {
             async getAllStunIps() {
               return await Promise.all(this.stunServers.map(server => this.getIpFromStun(server)));
             },
+            addErrorReason(reason) {
+              if (!this.errorReason.includes(reason))
+                this.errorReason.push(reason);
+            },
             async getIpFromStun(serverConfig) {
               return new Promise(() => {
                 const RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
                 if (!RTCPeerConnection) {
                   console.error('当前浏览器不支持 WebRTC');
+                  this.addErrorReason('当前浏览器不支持 WebRTC');
                   return;
                 }
 
@@ -111,13 +137,17 @@
                 pc.onicecandidate = (event) => {
                   if (!event || !event.candidate) {
                     pc.close();
-                    for (const ip of ips) {
-                      this.stunResults.push({
-                        provider: serverConfig.provider,
-                        urls: serverConfig.urls,
-                        ip: ip.ip,
-                        natType: ip.natType
-                      });
+                    if (ips.length) {
+                      for (const ip of ips) {
+                        this.stunResults.push({
+                          provider: serverConfig.provider,
+                          urls: serverConfig.urls,
+                          ip: ip.ip,
+                          natType: ip.natType
+                        });
+                      }
+                    } else {
+                      this.addErrorReason('无法获取IP，请检查WebRTC是否被禁用，或网络是否连通');
                     }
                     return;
                   }

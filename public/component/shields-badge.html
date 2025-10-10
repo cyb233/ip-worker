@@ -1,0 +1,18 @@
+<template component>
+  <a attr:href="href"><img attr:src="getImgSrc()" attr:alt="alt"></a>
+  <script>
+    export default {
+      attrs: {
+        href: '',
+        path: '',
+        query: '',
+        alt: '',
+      },
+      proto: {
+        getImgSrc() {
+          return `https://img.shields.io/${this.path}${this.query ? '?' + this.query : ''}`
+        }
+      }
+    }
+  </script>
+</template>
