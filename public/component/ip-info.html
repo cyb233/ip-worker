@@ -199,7 +199,7 @@
             return { formattedJsonp: str, json }; // JSON 不合法则直接返回原样
           }
 
-          return { format: `${func}(${formattedJSON})${semicolon}`, parsedJson: json };
+          return { formattedJsonp: `${func}(${formattedJSON})${semicolon}`, parsedJson: json };
         }
       }
     };
