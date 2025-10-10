@@ -1,0 +1,207 @@
+<template component>
+  <div style="display: flex; justify-content: space-around;">
+    <select style="width: 50%;" sync:value="format">
+      <template is="replace-temp">
+        <x-fill :value="formatList">
+          <option attr:value="$data">{{$data}}</option>
+        </x-fill>
+      </template>
+    </select>
+    <input style="width: 50%;" type="text" placeholder="callback" sync:value="callbackName" attr:disabled="format !== 'jsonp'"></input>
+  </div>
+  <div style="display: flex; justify-content: space-around;">
+    <x-fill :value="params">
+      <span :text="$data" attr:style="'width: ' + (100 / $host.params.length) + '%';"></span>
+    </x-fill>
+  </div>
+  <div>Your IP is <span :text="ip"></span></div>
+  <pre :text="ipInfo"></pre>
+  <script>
+    export default {
+      data: {
+        formatList: [
+          'json',
+          'xml',
+          'jsonp',
+          'text'
+        ],
+        format: 'json',
+        callbackName: 'callbackName',
+        params: '',
+        ipInfo: '加载中...',
+        ip: '',
+      },
+      watch: {
+        format(val) {
+          this.params = this.getParams(val, this.callbackName)
+          this.getIpInfo(val, this.callbackName)
+        },
+        callbackName(val) {
+          this.params = this.getParams(this.format, val)
+          this.getIpInfo(this.format, val)
+        }
+      },
+      proto: {
+        getParams(format = 'json', callbackName = 'callback') {
+          return [
+            `/api?format=${format}${format === 'jsonp' ? `&callback=${callbackName}` : ''}`,
+            `/api/${format}${format === 'jsonp' ? `/${callbackName}` : ''}`
+          ]
+        },
+        async getIpInfo(format = 'json', callbackName = 'callback') {
+          const response = await fetch(`${this.getParams(format, callbackName)[0]}`)
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`)
+          }
+          switch (format) {
+            case 'json':
+              const json = await response.json();
+              this.ip = json.ip
+              this.ipInfo = JSON.stringify(json, null, 2);
+            case 'xml':
+              const xml = await response.text();
+              const { formattedXml, doc } = this.formatXML(xml);
+              this.ip = doc.querySelector('ip').textContent
+              this.ipInfo = formattedXml;
+            case 'jsonp':
+              const jsonp = await response.text();
+              const { formattedJsonp, serializedJsonp } = this.formatJSONP(jsonp)
+              this.ip = serializedJsonp.ip
+              this.ipInfo = formattedJsonp;
+            case 'text':
+            default:
+              const text = await response.text();
+              this.ip = text
+              this.ipInfo = text;
+          }
+        },
+        formatXML(xml, indentSize = 2) {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(xml, "application/xml");
+          // detect parse error
+          if (doc.getElementsByTagName("parsererror").length) {
+            throw new Error("XML parse error: " + doc.documentElement.textContent);
+          }
+
+          const INDENT = (level) => " ".repeat(level * indentSize);
+
+          function escapeText(str) {
+            return str.replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;");
+          }
+
+          function escapeAttr(str) {
+            return str.replace(/&/g, "&amp;")
+              .replace(/"/g, "&quot;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;");
+          }
+
+          function meaningfulChildren(node) {
+            // filter out text nodes that are only whitespace
+            return Array.from(node.childNodes).filter(n => {
+              if (n.nodeType === Node.TEXT_NODE) return !/^\s*$/.test(n.nodeValue);
+              if (n.nodeType === Node.CDATA_SECTION_NODE) return true;
+              if (n.nodeType === Node.ELEMENT_NODE) return true;
+              if (n.nodeType === Node.COMMENT_NODE) return true;
+              if (n.nodeType === Node.PROCESSING_INSTRUCTION_NODE) return true;
+              return false;
+            });
+          }
+
+          function serialize(node, level) {
+            switch (node.nodeType) {
+              case Node.DOCUMENT_NODE: {
+                let out = [];
+                node.childNodes.forEach(child => {
+                  // skip empty text nodes at document level
+                  if (child.nodeType === Node.TEXT_NODE && /^\s*$/.test(child.nodeValue)) return;
+                  out.push(serialize(child, level));
+                });
+                return out.join("\n");
+              }
+
+              case Node.ELEMENT_NODE: {
+                const tag = node.tagName;
+                const attrs = Array.from(node.attributes || []).map(a => ` ${a.name}="${escapeAttr(a.value)}"`).join("");
+                const kids = meaningfulChildren(node);
+
+                // empty (no meaningful children)
+                if (kids.length === 0) {
+                  return `${INDENT(level)}<${tag}${attrs}/>`;
+                }
+
+                // single text node or single CDATA -> keep inline: <tag>text</tag> or <tag><![CDATA[...] ]></tag>
+                if (kids.length === 1 && (kids[0].nodeType === Node.TEXT_NODE || kids[0].nodeType === Node.CDATA_SECTION_NODE)) {
+                  const only = kids[0];
+                  if (only.nodeType === Node.TEXT_NODE) {
+                    const text = only.nodeValue.trim();
+                    return `${INDENT(level)}<${tag}${attrs}>${escapeText(text)}</${tag}>`;
+                  } else { // CDATA
+                    return `${INDENT(level)}<${tag}${attrs}><![CDATA[${only.nodeValue}]]></${tag}>`;
+                  }
+                }
+
+                // otherwise, multi-line
+                let lines = [];
+                lines.push(`${INDENT(level)}<${tag}${attrs}>`);
+                Array.from(node.childNodes).forEach(child => {
+                  // skip pure-whitespace text nodes
+                  if (child.nodeType === Node.TEXT_NODE && /^\s*$/.test(child.nodeValue)) return;
+                  lines.push(serialize(child, level + 1));
+                });
+                lines.push(`${INDENT(level)}</${tag}>`);
+                return lines.join("\n");
+              }
+
+              case Node.TEXT_NODE: {
+                // text that reaches here is meaningful (not pure whitespace)
+                const txt = node.nodeValue.trim();
+                return `${INDENT(level)}${escapeText(txt)}`;
+              }
+
+              case Node.CDATA_SECTION_NODE:
+                return `${INDENT(level)}<![CDATA[${node.nodeValue}]]>`;
+
+              case Node.COMMENT_NODE:
+                return `${INDENT(level)}<!--${node.nodeValue}-->`;
+
+              case Node.PROCESSING_INSTRUCTION_NODE:
+                return `${INDENT(level)}<?${node.target} ${node.nodeValue}?>`;
+
+              default:
+                // fallback: serialize via outerHTML if possible
+                if (node.outerHTML) return `${INDENT(level)}${node.outerHTML}`;
+                return "";
+            }
+          }
+
+          // 检测是否包含 XML 声明
+          const xmlDeclarationMatch = xml.match(/^<\?xml\s+[^?]*\?>/i);
+          const xmlDeclaration = xmlDeclarationMatch
+            ? xmlDeclarationMatch[0].trim() + "\n"
+            : '';
+
+          return { format: xmlDeclaration + serialize(doc, 0), doc };
+        },
+        formatJSONP(str, indent = 2) {
+          const match = str.trim().match(/^([\w$.]+)\(([\s\S]*)\)(;?)$/);
+          if (!match) return str; // 不是合法 JSONP
+
+          const [, func, jsonText, semicolon] = match;
+
+          let json = {}, formattedJSON;
+          try {
+            json = JSON.parse(jsonText);
+            formattedJSON = JSON.stringify(json, null, indent);
+          } catch {
+            return { format: str, json }; // JSON 不合法则直接返回原样
+          }
+
+          return { format: `${func}(${formattedJSON})${semicolon}`, json };
+        }
+      }
+    };
+  </script>
+</template>

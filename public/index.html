@@ -4,138 +4,101 @@
 <head>
   <meta charset="UTF-8">
   <title>IP Worker 说明页</title>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      margin: 2em auto;
-      max-width: 700px;
-      line-height: 1.7;
-      color: #222;
-      background: #fafbfc;
-    }
-
-    h1,
-    h2,
-    h3 {
-      color: #2b6cb0;
-    }
-
-    code,
-    pre {
-      background: #f4f4f4;
-      border-radius: 4px;
-    }
-
-    code {
-      padding: 2px 6px;
-      font-size: 1em;
-    }
-
-    pre {
-      padding: 1em;
-      overflow-x: auto;
-      font-size: 0.97em;
-    }
-
-    ul {
-      margin-bottom: 1.2em;
-    }
-
-    .demo-link {
-      margin-right: 1em;
-      margin-bottom: 0.5em;
-    }
-
-    footer {
-      margin-top: 2em;
-      text-align: center;
-      color: #888;
-      font-size: 0.95em;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noimageindex">
+  <script src="https://cdn.jsdelivr.net/gh/kirakiray/ofa.js/dist/ofa.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/kirakiray/ofa.js/libs/scsr/dist/scsr.min.js"></script>
+  <script src="./js/public.js"></script>
+  <link rel="stylesheet" href="./css/public.css" />
 </head>
 
 <body>
-  <h1>IP Worker 接口说明</h1>
-  <p>本服务可获取访问者的 <b>IP</b> 及相关地理信息，支持多种格式返回。</p>
-  <h2>接口地址</h2>
-  <ul>
-    <li><b>IPv4/IPv6：</b> <code>ip.shuvi.moe</code></li>
-    <li><b>仅 IPv4：</b> <code>ip4.shuvi.moe</code></li>
-    <li><b>仅 IPv6：</b> <code>ip6.shuvi.moe</code></li>
-    <li><b>WebRTC相关：</b> <a href="/webrtc"><code>/webrtc</code></a></li>
-  </ul>
-  <h2>用法示例</h2>
-  <p>通过 <code>?format=</code> 参数或路径选择返回格式：</p>
-  <ul>
-    <li class="demo-link">
-      <a href="/api?format=json"><code>/api?format=json</code></a>
-      /
-      <a href="/api/json"><code>/api/json</code></a>
-      <small>JSON</small>
-    </li>
-    <li class="demo-link">
-      <a href="/api?format=xml"><code>/api?format=xml</code></a>
-      /
-      <a href="/api/xml"><code>/api/xml</code></a>
-      <small>XML</small>
-    </li>
-    <li class="demo-link">
-      <a href="/api?format=jsonp&callback=foo"><code>/api?format=jsonp&callback=foo</code></a>
-      /
-      <a href="/api/jsonp/foo"><code>/api/jsonp/foo</code></a>
-      <small>JSONP</small>
-    </li>
-    <li class="demo-link">
-      <a href="/api"><code>/api</code></a>
-      /
-      <a href="/api?format=text"><code>/api?format=text</code></a>
-      /
-      <a href="/api/text"><code>/api/text</code></a>
-      <small>纯文本</small>
-    </li>
-  </ul>
-  <h3>支持格式</h3>
-  <ul>
-    <li><code>json</code>：JSON 对象</li>
-    <li><code>xml</code>：XML 文档</li>
-    <li><code>jsonp</code>：JSONP，需 <code>callback</code> 参数</li>
-    <li><code>text</code> 或无参数：仅 IP 字符串</li>
-  </ul>
-  <h2>返回字段</h2>
-  <pre>
-{
-  "ip": "用户IP",
-  "asn": "自治系统编号",
-  "colo": "Cloudflare节点",
-  "continent": "大洲代码",
-  "country": "国家代码",
-  "city": "城市",
-  "isEUCountry": "是否欧盟国家",
-  "asOrganization": "运营商",
-  "longitude": "经度",
-  "latitude": "纬度",
-  "postalCode": "邮编",
-  "region": "地区",
-  "regionCode": "地区代码",
-  "timezone": "时区"
-}
-  </pre>
-  <h2>实时请求示例</h2>
-  <pre id="json-demo">加载中...</pre>
-  <script>
-    fetch('/api?format=json')
-      .then(r => r.json())
-      .then(data => {
-        document.getElementById('json-demo').textContent = JSON.stringify(data, null, 2)
-      })
-      .catch(() => {
-        document.getElementById('json-demo').textContent = '获取失败'
-      })
-  </script>
-  <footer>
-    Powered by Cloudflare Workers
-  </footer>
+  <o-app src="./app-config.mjs">
+    <template page>
+      <link rel="stylesheet" href="./css/public.css" />
+      <h1>IP Worker 接口说明</h1>
+      <p>本服务可获取访问者的 <b>IP</b> 及相关地理信息，支持多种格式返回。</p>
+      <h2>接口地址</h2>
+      <ul>
+        <li><b>IPv4/IPv6：</b> <code :text="host46"></code></li>
+        <li><b>仅 IPv4：</b> <code :text="host4"></code></li>
+        <li><b>仅 IPv6：</b> <code :text="host6"></code></li>
+        <li><b>WebRTC相关：</b> <a href="/webrtc" olink><code>/webrtc</code></a></li>
+      </ul>
+      <h2>用法示例</h2>
+      <p>通过 <code>?format=</code> 参数或路径选择返回格式：</p>
+      <ul>
+        <li class="demo-link">
+          <a href="/api?format=json"><code>/api?format=json</code></a>
+          /
+          <a href="/api/json"><code>/api/json</code></a>
+          <small>JSON</small>
+        </li>
+        <li class="demo-link">
+          <a href="/api?format=xml"><code>/api?format=xml</code></a>
+          /
+          <a href="/api/xml"><code>/api/xml</code></a>
+          <small>XML</small>
+        </li>
+        <li class="demo-link">
+          <a href="/api?format=jsonp&callback=foo"><code>/api?format=jsonp&callback=foo</code></a>
+          /
+          <a href="/api/jsonp/foo"><code>/api/jsonp/foo</code></a>
+          <small>JSONP</small>
+        </li>
+        <li class="demo-link">
+          <a href="/api"><code>/api</code></a>
+          /
+          <a href="/api?format=text"><code>/api?format=text</code></a>
+          /
+          <a href="/api/text"><code>/api/text</code></a>
+          <small>纯文本</small>
+        </li>
+      </ul>
+      <h3>支持格式</h3>
+      <ul>
+        <li><code>json</code>：JSON 对象</li>
+        <li><code>xml</code>：XML 文档</li>
+        <li><code>jsonp</code>：JSONP，需 <code>callback</code> 参数</li>
+        <li><code>text</code> 或无参数：仅 IP 字符串</li>
+      </ul>
+      <h2>返回字段</h2>
+      <pre :text="example"></pre>
+      <h2>请求示例</h2>
+      <l-m src="./component/ip-info.html"></l-m>
+      <ip-info></ip-info>
+      <footer>
+        Powered by <a href="https://workers.cloudflare.com/" target="_blank">Cloudflare Workers</a>
+      </footer>
+
+      <script>
+        export default {
+          data: {
+            host46: 'ip.shuvi.moe',
+            host4: 'ip4.shuvi.moe',
+            host6: 'ip6.shuvi.moe',
+            example: JSON.stringify({
+              "ip": "用户IP",
+              "asn": "自治系统编号",
+              "colo": "Cloudflare节点",
+              "continent": "大洲代码",
+              "country": "国家代码",
+              "city": "城市",
+              "isEUCountry": "是否欧盟国家",
+              "asOrganization": "运营商",
+              "longitude": "经度",
+              "latitude": "纬度",
+              "postalCode": "邮编",
+              "region": "地区",
+              "regionCode": "地区代码",
+              "timezone": "时区"
+            }, null, 2),
+          },
+        }
+      </script>
+    </template>
+  </o-app>
 </body>
 
 </html>
