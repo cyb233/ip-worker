@@ -31,6 +31,7 @@ interface IpInfo {
   region: string | undefined;
   regionCode: string | undefined;
   timezone: string | undefined;
+  userAgent: string | null;
 }
 
 const app = new Hono();
@@ -65,6 +66,7 @@ function getIpInfo(c: Context): IpInfo {
     region: cf.region,
     regionCode: cf.regionCode,
     timezone: cf.timezone,
+    userAgent: c.req.raw.headers.get('User-Agent'),
   };
 }
 
