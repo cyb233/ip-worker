@@ -10,83 +10,16 @@
  *
  * Learn more at https://developers.cloudflare.com/workers/
  */
-import { Hono, Context } from 'hono';
+import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { requestId } from 'hono/request-id';
 import { trimTrailingSlash } from 'hono/trailing-slash';
 
-import { toXml } from './utils';
-interface IpInfo {
-  ip: string | null;
-  asn: number | undefined;
-  colo: string | undefined;
-  continent: ContinentCode | undefined;
-  country: Iso3166Alpha2Code | 'T1' | undefined;
-  city: string | undefined;
-  isEUCountry: '1' | undefined;
-  asOrganization: string | undefined;
-  longitude: string | undefined;
-  latitude: string | undefined;
-  postalCode: string | undefined;
-  region: string | undefined;
-  regionCode: string | undefined;
-  timezone: string | undefined;
-  userAgent: string | null;
-}
+import { app as ipApp } from '@/ip';
 
-const app = new Hono();
+const app = new Hono().basePath('/api');
 app.use(logger(), requestId(), trimTrailingSlash());
 
-app.all('/api', (c) => {
-  const { format, callback } = c.req.query();
-  return getIpResp(c, format, callback);
-});
-
-app.all('/api/:format/:callback?', (c) => {
-  const { format, callback } = c.req.param();
-  return getIpResp(c, format, callback);
-});
+app.route('/', ipApp);
 
 export default app;
-
-function getIpInfo(c: Context): IpInfo {
-  const cf = c.req.raw.cf as IncomingRequestCfProperties;
-  return {
-    ip: c.req.raw.headers.get('CF-Connecting-IP'),
-    asn: cf.asn,
-    colo: cf.colo,
-    continent: cf.continent,
-    country: cf.country,
-    city: cf.city,
-    isEUCountry: cf.isEUCountry,
-    asOrganization: cf.asOrganization,
-    longitude: cf.longitude,
-    latitude: cf.latitude,
-    postalCode: cf.postalCode,
-    region: cf.region,
-    regionCode: cf.regionCode,
-    timezone: cf.timezone,
-    userAgent: c.req.raw.headers.get('User-Agent'),
-  };
-}
-
-function getIpResp(c: Context, format: string, callback?: string): Response {
-  const json = getIpInfo(c);
-  switch (format) {
-    case 'json':
-      return c.json(json);
-    case 'xml':
-      c.header('Content-Type', 'application/xml');
-      return c.body(toXml(json));
-    case 'jsonp':
-      if (callback) {
-        const jsonpResponse = `${callback}(${JSON.stringify(json)})`;
-        c.header('Content-Type', 'application/javascript');
-        return c.body(jsonpResponse);
-      }
-      return c.text('Callback parameter is required for JSONP', { status: 400 });
-    case 'text':
-    default:
-      return c.text(json.ip ?? '');
-  }
-}
