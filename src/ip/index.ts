@@ -4,35 +4,29 @@ import { toXml } from '@/utils';
 
 export const app = new Hono();
 
-app.all('/', (c) => {
-  console.log('self ip');
-  const { format, callback } = c.req.query();
-  const data = getIpInfo(c);
-  return getIpResp(c, data, format, callback);
-});
-
 app.all('/ip', async (c) => {
-  console.log('query ip');
-  const { ip, format, callback } = c.req.query();
+  const { ip, format = 'json', callback } = c.req.query();
   const data = await queryIpInfo(c, ip);
   return getIpResp(c, data, format, callback);
 });
 app.all('/ip/:ip', async (c) => {
-  console.log('query ip');
   const { ip } = c.req.param();
-  const { format, callback } = c.req.query();
+  const { format = 'json', callback } = c.req.query();
   const data = await queryIpInfo(c, ip);
   return getIpResp(c, data, format, callback);
 });
 app.all('/ip/:ip/:format/:callback?', async (c) => {
-  console.log('query ip');
-  const { ip, format, callback } = c.req.param();
+  const { ip, format = 'json', callback } = c.req.param();
   const data = await queryIpInfo(c, ip);
   return getIpResp(c, data, format, callback);
 });
 
+app.all('/', (c) => {
+  const { format, callback } = c.req.query();
+  const data = getIpInfo(c);
+  return getIpResp(c, data, format, callback);
+});
 app.all('/:format/:callback?', (c) => {
-  console.log('self ip');
   const { format, callback } = c.req.param();
   const data = getIpInfo(c);
   return getIpResp(c, data, format, callback);
@@ -82,9 +76,9 @@ async function queryIpInfo(c: Context, ip: string): Promise<IpInfo> {
     colo: undefined,
     asOrganization: data.connection?.org,
     continent: data.continent,
-    country: data.country,
+    country: data.country_code,
     city: data.city,
-    isEUCountry: undefined,
+    isEUCountry: data.is_eu ? '1' : undefined,
     latitude: data.latitude,
     longitude: data.longitude,
     postalCode: data.postal,
