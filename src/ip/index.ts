@@ -71,7 +71,7 @@ async function queryIpInfo(c: Context, ip: string): Promise<IpInfo> {
     continent: data.continent,
     country: data.country_code,
     city: data.city,
-    isEUCountry: data.is_eu ? '1' : undefined,
+    isEUCountry: data.is_eu,
     asOrganization: data.connection?.org,
     longitude: data.longitude,
     latitude: data.latitude,

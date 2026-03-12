@@ -5,7 +5,7 @@ export interface IpInfo {
   continent: ContinentCode | string | undefined;
   country: Iso3166Alpha2Code | 'T1' | string | undefined;
   city: string | undefined;
-  isEUCountry: '1' | undefined;
+  isEUCountry: boolean | '1' | undefined;
   asOrganization: string | undefined;
   longitude: string | number | undefined;
   latitude: string | number | undefined;
