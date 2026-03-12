@@ -56,13 +56,7 @@ function getIpInfo(c: Context): IpInfo {
 }
 
 async function queryIpInfo(c: Context, ip: string): Promise<IpInfo> {
-  const ua = c.req.raw.headers.get('User-Agent') ?? '';
-  const resp = await fetch(`https://ipwho.is/${ip}`, {
-    method: 'GET',
-    headers: {
-      'User-Agent': ua,
-    },
-  });
+  const resp = await fetch(`https://ipwho.is/${ip}`);
 
   if (!resp.ok) {
     throw new Error('IP query failed');
@@ -74,18 +68,18 @@ async function queryIpInfo(c: Context, ip: string): Promise<IpInfo> {
     ip: data.ip,
     asn: data.connection?.asn,
     colo: undefined,
-    asOrganization: data.connection?.org,
     continent: data.continent,
     country: data.country_code,
     city: data.city,
     isEUCountry: data.is_eu ? '1' : undefined,
-    latitude: data.latitude,
+    asOrganization: data.connection?.org,
     longitude: data.longitude,
+    latitude: data.latitude,
     postalCode: data.postal,
     region: data.region,
     regionCode: data.region_code,
     timezone: data.timezone.id,
-    userAgent: ua,
+    userAgent: c.req.raw.headers.get('User-Agent'),
 
     raw: JSON.stringify(data),
   };
