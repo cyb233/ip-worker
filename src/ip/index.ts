@@ -65,7 +65,7 @@ async function queryIpInfo(c: Context, ip: string): Promise<IpInfo> {
   });
 
   if (!resp.ok) {
-    throw new Error('IP query failed');
+    throw new Error('IP query failed: ' + resp.statusText);
   }
 
   const data = await resp.json<IpWhoisResponse>();
