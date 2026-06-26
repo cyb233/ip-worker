@@ -89,31 +89,6 @@ Accept: application/dns-message
 
         <pre :text="dnsExample"></pre>
 
-        <h2>环境变量配置</h2>
-        <p>
-          DNS over HTTPS 的上游、超时和缓存行为可以通过 Worker 环境变量调整。当前可用配置如下。
-        </p>
-
-        <ul>
-          <li><code>DOH_UPSTREAM_URL</code>：上游标准 DoH 地址，默认值为 <code>https://cloudflare-dns.com/dns-query</code></li>
-          <li><code>DOH_TIMEOUT_MS</code>：上游请求超时时间，单位毫秒，默认值为 <code>5000</code></li>
-          <li><code>DOH_CACHE_ENABLED</code>：是否启用边缘缓存，默认值为 <code>1</code></li>
-          <li><code>DOH_CACHE_MIN_TTL</code>：缓存 TTL 下限，默认值为 <code>0</code></li>
-          <li><code>DOH_CACHE_MAX_TTL</code>：缓存 TTL 上限，默认值为 <code>86400</code></li>
-          <li><code>DOH_CACHE_NEGATIVE_MAX_TTL</code>：负缓存 TTL 上限，默认值为 <code>300</code></li>
-        </ul>
-
-        <pre>
-"vars": {
-  "DOH_UPSTREAM_URL": "https://cloudflare-dns.com/dns-query",
-  "DOH_TIMEOUT_MS": "5000",
-  "DOH_CACHE_ENABLED": "1",
-  "DOH_CACHE_MIN_TTL": "0",
-  "DOH_CACHE_MAX_TTL": "86400",
-  "DOH_CACHE_NEGATIVE_MAX_TTL": "300"
-}
-        </pre>
-
       </main>
 
       <footer>
