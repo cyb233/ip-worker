@@ -24,8 +24,8 @@
       <header>
         <h1>IP Worker 接口说明</h1>
         <p>
-          本服务用于获取 <b>IP 地址</b> 及相关网络与地理信息，
-          支持访问者 IP 查询和指定 IP 查询，并提供多种返回格式。
+          本服务提供两类能力：<b>IP 地址</b> 查询，以及基于 Cloudflare Worker 的 <b>DNS over HTTPS</b>
+          解析接口。IP 相关用法保留在本页，DNS 相关说明已拆分到独立文档页。
         </p>
       </header>
 
@@ -36,10 +36,11 @@
           <li><b>IPv4/IPv6：</b> <code :text="host46"></code></li>
           <li><b>仅 IPv4：</b> <code :text="host4"></code></li>
           <li><b>仅 IPv6：</b> <code :text="host6"></code></li>
+          <li><b>DNS相关：</b> <a href="/dns" olink><code>/dns</code></a></li>
           <li><b>WebRTC相关：</b> <a href="/webrtc" olink><code>/webrtc</code></a></li>
         </ul>
 
-        <h2>用法示例</h2>
+        <h2>IP 查询</h2>
 
         <h4>访问者 IP 查询</h4>
         <small>format 默认值 text</small>

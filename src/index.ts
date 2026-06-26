@@ -15,11 +15,13 @@ import { logger } from 'hono/logger';
 import { requestId } from 'hono/request-id';
 import { trimTrailingSlash } from 'hono/trailing-slash';
 
-import { app as ipApp } from '@/ip';
+import { app as dnsApp } from './dns/index';
+import { app as ipApp } from './ip/index';
 
-const app = new Hono().basePath('/api');
+const app = new Hono();
 app.use(logger(), requestId(), trimTrailingSlash());
 
-app.route('/', ipApp);
+app.route('/', dnsApp);
+app.route('/api', ipApp);
 
 export default app;

@@ -19,7 +19,7 @@
    * Smart Placement
    * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
    */
-  "placement": { "mode": "smart" }
+  "placement": { "mode": "smart" },
 
   /**
    * Bindings
@@ -32,7 +32,14 @@
    * Environment Variables
    * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
    */
-  // "vars": { "MY_VARIABLE": "production_value" },
+  "vars": {
+    "DOH_UPSTREAM_URL": "https://cloudflare-dns.com/dns-query",
+    "DOH_TIMEOUT_MS": "5000",
+    "DOH_CACHE_ENABLED": "1",
+    "DOH_CACHE_MIN_TTL": "0",
+    "DOH_CACHE_MAX_TTL": "86400",
+    "DOH_CACHE_NEGATIVE_MAX_TTL": "300"
+  },
   /**
    * Note: Use secrets to store sensitive data.
    * https://developers.cloudflare.com/workers/configuration/secrets/

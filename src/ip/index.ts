@@ -1,6 +1,6 @@
 import { Hono, Context } from 'hono';
-import { IpInfo, IpApiResponse } from '@/models';
-import { toXml } from '@/utils';
+import { IpInfo, IpApiResponse } from '../models';
+import { toXml } from '../utils';
 
 export const app = new Hono();
 
