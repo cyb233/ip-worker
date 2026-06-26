@@ -1,6 +1,6 @@
 export interface IpInfo {
   ip: string | null;
-  asn: number | undefined;
+  asn: string | number | undefined;
   colo: string | undefined;
   continent: ContinentCode | string | undefined;
   country: Iso3166Alpha2Code | 'T1' | string | undefined;
@@ -19,118 +19,58 @@ export interface IpInfo {
 }
 
 /**
- * ipwho.is API 响应实体
- * https://ipwho.is/
+ * ip-api API 响应实体
+ * https://ip-api.com/
  */
-export interface IpWhoisResponse {
-  /** 查询的 IP 地址 */
-  ip: string;
-
-  /** 请求是否成功 */
-  success: boolean;
-
-  /** IP 类型，例如 IPv4 或 IPv6 */
-  type: string;
-
-  /** 所在洲名称 */
+export interface IpApiResponse {
+  // IP used for the query
+  query: string;
+  // success or fail
+  status: 'success' | 'fail';
+  // included only when status is fail, Can be one of the following: private range, reserved range, invalid query
+  message: string | undefined;
+  // Continent name
   continent: string;
-
-  /** 洲代码（ISO） */
-  continent_code: string;
-
-  /** 国家名称 */
+  // Two-letter continent code
+  continentCode: string;
+  // Country name
   country: string;
-
-  /** 国家代码（ISO 3166-1 alpha-2） */
-  country_code: string;
-
-  /** 州 / 省 / 地区名称 */
+  // Two-letter country code ISO 3166-1 alpha-2
+  countryCode: string;
+  // Region/state short code (FIPS or ISO)
   region: string;
-
-  /** 州 / 省 / 地区代码 */
-  region_code: string;
-
-  /** 城市 */
+  // Region/state
+  regionName: string;
+  // City
   city: string;
-
-  /** 纬度 */
-  latitude: number;
-
-  /** 经度 */
-  longitude: number;
-
-  /** 是否属于欧盟国家 */
-  is_eu: boolean;
-
-  /** 邮政编码 */
-  postal: string;
-
-  /** 国家电话区号 */
-  calling_code: string;
-
-  /** 国家首都 */
-  capital: string;
-
-  /** 邻国代码列表（逗号分隔） */
-  borders: string;
-
-  /** 国旗信息 */
-  flag: IpWhoisFlag;
-
-  /** 网络连接信息 */
-  connection: IpWhoisConnection;
-
-  /** 时区信息 */
-  timezone: IpWhoisTimezone;
-}
-
-/**
- * 国旗信息
- */
-export interface IpWhoisFlag {
-  /** 国旗图片 URL */
-  img: string;
-
-  /** 国旗 emoji */
-  emoji: string;
-
-  /** emoji Unicode 编码 */
-  emoji_unicode: string;
-}
-
-/**
- * ASN / 网络信息
- */
-export interface IpWhoisConnection {
-  /** 自治系统编号 (ASN) */
-  asn: number;
-
-  /** ASN 所属组织 */
-  org: string;
-
-  /** ISP 服务提供商 */
-  isp: string;
-
-  /** 相关域名 */
-  domain: string;
-}
-
-/**
- * 时区信息
- */
-export interface IpWhoisTimezone {
-  /** 时区 ID */
-  id: string;
-
-  /** 时区缩写 */
-  abbr: string;
-
-  /** 是否为夏令时 */
-  is_dst: boolean;
-
-  /** UTC 偏移（秒） */
+  // District (subdivision of city)
+  district: string;
+  // Zip code
+  zip: string;
+  // Latitude
+  lat: number;
+  // Longitude
+  lon: number;
+  // Timezone (tz)
+  timezone: string;
+  // Timezone UTC DST offset in seconds
   offset: number;
-
-  /** UTC 偏移（字符串格式） */
-  utc: string;
+  // National currency
+  currency: string;
+  // ISP name
+  isp: string;
+  // Organization name
+  org: string;
+  // AS number and organization, separated by space (RIR). Empty for IP blocks not being announced in BGP tables.
+  as: string;
+  // AS name (RIR). Empty for IP blocks not being announced in BGP tables.
+  asname: string;
+  // Reverse DNS of the IP (can delay response)
+  reverse: string;
+  // Mobile (cellular) connection
+  mobile: boolean;
+  // 	Proxy, VPN or Tor exit address
+  proxy: boolean;
+  // Hosting, colocated or data center
+  hosting: boolean;
 }

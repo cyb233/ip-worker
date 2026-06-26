@@ -1,5 +1,5 @@
 import { Hono, Context } from 'hono';
-import { IpInfo, IpWhoisResponse } from '@/models';
+import { IpInfo, IpApiResponse } from '@/models';
 import { toXml } from '@/utils';
 
 export const app = new Hono();
@@ -56,35 +56,38 @@ function getIpInfo(c: Context): IpInfo {
 }
 
 async function queryIpInfo(c: Context, ip: string): Promise<IpInfo> {
-  const resp = await fetch(`https://ipwho.is/${ip}`, {
-    headers: {
-      'User-Agent':
-        c.req.raw.headers.get('User-Agent') ||
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
+  const resp = await fetch(
+    `http://ip-api.com/json/${ip}?fields=status,message,continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,reverse,mobile,proxy,hosting,query`,
+    {
+      headers: {
+        'User-Agent':
+          c.req.raw.headers.get('User-Agent') ||
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
+      },
     },
-  });
+  );
 
   if (!resp.ok) {
-    throw new Error('IP query failed: ' + resp.statusText);
+    throw new Error(`IP query failed: ${resp.status} ${resp.statusText}`);
   }
 
-  const data = await resp.json<IpWhoisResponse>();
+  const data = await resp.json<IpApiResponse>();
 
   return {
-    ip: data.ip,
-    asn: data.connection?.asn,
+    ip: data.query,
+    asn: data.as,
     colo: undefined,
-    continent: data.continent,
-    country: data.country_code,
+    continent: data.continentCode,
+    country: data.countryCode,
     city: data.city,
-    isEUCountry: data.is_eu,
-    asOrganization: data.connection?.org,
-    longitude: data.longitude,
-    latitude: data.latitude,
-    postalCode: data.postal,
-    region: data.region,
-    regionCode: data.region_code,
-    timezone: data.timezone.id,
+    isEUCountry: undefined,
+    asOrganization: data.asname,
+    longitude: data.lon,
+    latitude: data.lat,
+    postalCode: data.zip,
+    region: data.regionName,
+    regionCode: data.region,
+    timezone: data.timezone,
     userAgent: c.req.raw.headers.get('User-Agent'),
 
     raw: JSON.stringify(data),
