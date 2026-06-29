@@ -5,7 +5,10 @@ export interface DohEnv {
   DOH_CACHE_MIN_TTL?: string;
   DOH_CACHE_MAX_TTL?: string;
   DOH_CACHE_NEGATIVE_MAX_TTL?: string;
+  DNS_API_KEY?: string;
 }
+
+export type WorkerConfigEnv = Env & DohEnv;
 
 export interface DohConfig {
   upstreamUrl: URL;
@@ -23,7 +26,7 @@ const DEFAULT_DOH_CACHE_MIN_TTL = 0;
 const DEFAULT_DOH_CACHE_MAX_TTL = 86400;
 const DEFAULT_DOH_CACHE_NEGATIVE_MAX_TTL = 300;
 
-export function getDohConfig(env: Env | DohEnv): DohConfig {
+export function getDohConfig(env: WorkerConfigEnv): DohConfig {
   const upstreamUrl = parseHttpsUrl(env.DOH_UPSTREAM_URL, DEFAULT_DOH_UPSTREAM_URL);
   const timeoutMs = parseInteger(env.DOH_TIMEOUT_MS, DEFAULT_DOH_TIMEOUT_MS, 'DOH_TIMEOUT_MS', 1);
   const cacheEnabled = parseBoolean(env.DOH_CACHE_ENABLED, DEFAULT_DOH_CACHE_ENABLED, 'DOH_CACHE_ENABLED');
@@ -48,6 +51,19 @@ export function getDohConfig(env: Env | DohEnv): DohConfig {
     cacheMaxTtl,
     cacheNegativeMaxTtl,
   };
+}
+
+export function getDnsApiKey(env: WorkerConfigEnv): string | undefined {
+  const dnsApiKey = env.DNS_API_KEY;
+  if (dnsApiKey === undefined || dnsApiKey === '') {
+    return undefined;
+  }
+
+  if (dnsApiKey.includes('/')) {
+    throw new Error('DNS_API_KEY must not contain /');
+  }
+
+  return dnsApiKey;
 }
 
 function parseHttpsUrl(value: string | undefined, fallback: string): URL {

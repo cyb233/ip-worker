@@ -153,6 +153,113 @@ describe('DNS over HTTPS worker', () => {
     expect(response.status).toBe(504);
   });
 
+  it('returns 401 for legacy DNS paths when DNS_API_KEY is configured', async () => {
+    const query = buildDnsQuery({ id: 0x6a6a, name: 'protected.example', type: 1 });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    const response = await dispatch(`/dns-query?dns=${encodeBase64Url(query)}`, undefined, {
+      DNS_API_KEY: 'test-key',
+    });
+
+    expect(response.status).toBe(401);
+    expect(await response.text()).toBe('Unauthorized');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('allows GET /:dnsApiKey/dns-query when DNS_API_KEY matches', async () => {
+    const query = buildDnsQuery({ id: 0x6b6b, name: 'protected-get.example', type: 1 });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(buildAResponse('protected-get.example', 0x6b6b, '203.0.113.30', 90), {
+        headers: { 'Content-Type': 'application/dns-message' },
+      }),
+    );
+
+    const response = await dispatch(`/test-key/dns-query?dns=${encodeBase64Url(query)}`, undefined, {
+      DNS_API_KEY: 'test-key',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('X-DNS-Cache')).toBe('MISS');
+  });
+
+  it('returns 401 for incorrect DNS path key', async () => {
+    const query = buildDnsQuery({ id: 0x6c6c, name: 'wrong-key.example', type: 1 });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    const response = await dispatch(`/wrong-key/dns-query?dns=${encodeBase64Url(query)}`, undefined, {
+      DNS_API_KEY: 'test-key',
+    });
+
+    expect(response.status).toBe(401);
+    expect(await response.text()).toBe('Unauthorized');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('allows POST /:dnsApiKey/dns-query when DNS_API_KEY matches', async () => {
+    const query = buildDnsQuery({ id: 0x6d6d, name: 'protected-post.example', type: 1 });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(buildAResponse('protected-post.example', 0x6d6d, '203.0.113.31', 75), {
+        headers: { 'Content-Type': 'application/dns-message' },
+      }),
+    );
+
+    const response = await dispatch('/test-key/dns-query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/dns-message' },
+      body: query,
+    }, {
+      DNS_API_KEY: 'test-key',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('X-DNS-Cache')).toBe('MISS');
+  });
+
+  it('allows GET /:dnsApiKey/resolve when DNS_API_KEY matches', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      const body = new Uint8Array(init?.body as ArrayBuffer);
+      return new Response(buildAResponse('protected-resolve.example', getId(body), '198.51.100.8', 180), {
+        headers: { 'Content-Type': 'application/dns-message' },
+      });
+    });
+
+    const response = await dispatch('/test-key/resolve?name=protected-resolve.example&type=A', undefined, {
+      DNS_API_KEY: 'test-key',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toContain('application/dns-json');
+
+    const payload = await response.json<any>();
+    expect(payload.Question).toEqual([{ name: 'protected-resolve.example.', type: 1 }]);
+  });
+
+  it('returns 404 for prefixed DNS paths when DNS_API_KEY is not configured', async () => {
+    const query = buildDnsQuery({ id: 0x6e6e, name: 'public-alias.example', type: 1 });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    const response = await dispatch(`/anything/dns-query?dns=${encodeBase64Url(query)}`);
+
+    expect(response.status).toBe(404);
+    expect(await response.text()).toBe('Not Found');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when DNS_API_KEY contains a slash', async () => {
+    const query = buildDnsQuery({ id: 0x6f6f, name: 'invalid-key.example', type: 1 });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    const response = await dispatch(`/dns-query?dns=${encodeBase64Url(query)}`, undefined, {
+      DNS_API_KEY: 'bad/key',
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.text()).toBe('DNS_API_KEY must not contain /');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('keeps the legacy /api IP route working', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input);
@@ -257,6 +364,7 @@ function buildNxDomainResponse(name: string, id: number, ttl: number): Uint8Arra
   soaView.setUint32(8, 600);
   soaView.setUint32(12, 86400);
   soaView.setUint32(16, ttl);
+
   const soaData = concatBytes(mname, rname, soaTail);
 
   const authority = new Uint8Array(authorityName.length + 10 + soaData.length);

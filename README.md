@@ -24,6 +24,7 @@
 - 支持 `POST /dns-query` + `application/dns-message`
 - 提供 `GET /resolve` 的 JSON 解析接口
 - 支持通过环境变量配置上游 DoH、超时和缓存 TTL
+- 支持可选 `DNS_API_KEY` 路径鉴权
 - 支持边缘缓存与负缓存
 
 ### 3. 静态演示页面
@@ -143,9 +144,31 @@ Worker 将 IP 查询路由挂载在 `/api` 下。
 
 ## DNS over HTTPS 接口
 
+### DNS_API_KEY 可选鉴权
+
+默认情况下，DNS 接口仍然是公开的。
+
+当配置了 `DNS_API_KEY` 后，DNS 接口会启用 **path-based 鉴权**，必须把 key 放到路径前缀中：
+
+```text
+/<DNS_API_KEY>/dns-query
+/<DNS_API_KEY>/resolve
+```
+
+例如：
+
+```text
+/test-key/dns-query?dns=AAABAAABAAAAAAAAA2RucwdleGFtcGxlA2NvbQAAAQAB
+/test-key/resolve?name=example.com&type=A
+```
+
+> 注意：路径中的 key 可能出现在访问日志、浏览器历史或代理记录中。请使用高强度、URL-safe 的随机值，并优先通过 Cloudflare secret 配置，而不是写入仓库。
+
 ### 1. 标准 DoH：`/dns-query`
 
 支持 `GET` 和 `POST` 两种调用方式。
+
+如果 **未配置** `DNS_API_KEY`：
 
 #### GET
 
@@ -153,6 +176,12 @@ Worker 将 IP 查询路由挂载在 `/api` 下。
 
 ```text
 /dns-query?dns=AAABAAABAAAAAAAAA2RucwdleGFtcGxlA2NvbQAAAQAB
+```
+
+如果 **已配置** `DNS_API_KEY`，则需要改为：
+
+```text
+/<DNS_API_KEY>/dns-query?dns=AAABAAABAAAAAAAAA2RucwdleGFtcGxlA2NvbQAAAQAB
 ```
 
 #### POST
@@ -166,16 +195,32 @@ Accept: application/dns-message
 
 请求体为原始 DNS wire message。
 
+如果启用了 `DNS_API_KEY`，请求路径应改为：
+
+```http
+POST /<DNS_API_KEY>/dns-query
+```
+
 ### 2. JSON 解析接口：`/resolve`
 
 适合脚本调用、联调与调试。
 
 #### 示例
 
+未配置 `DNS_API_KEY` 时：
+
 ```text
 /resolve?name=example.com&type=A
 /resolve?name=cloudflare.com&type=AAAA
 /resolve?name=example.com&type=MX&do=1
+```
+
+配置 `DNS_API_KEY` 后：
+
+```text
+/<DNS_API_KEY>/resolve?name=example.com&type=A
+/<DNS_API_KEY>/resolve?name=cloudflare.com&type=AAAA
+/<DNS_API_KEY>/resolve?name=example.com&type=MX&do=1
 ```
 
 #### 支持的查询参数
@@ -230,6 +275,7 @@ DNS 接口会附带以下调试/缓存头：
 | `DOH_CACHE_MIN_TTL` | `0` | 缓存 TTL 下限 |
 | `DOH_CACHE_MAX_TTL` | `86400` | 缓存 TTL 上限 |
 | `DOH_CACHE_NEGATIVE_MAX_TTL` | `300` | 负缓存 TTL 上限 |
+| `DNS_API_KEY` | 未设置 | 可选。设置后，DNS 接口需要通过 `/<DNS_API_KEY>/...` 访问 |
 
 对应配置示例：
 
@@ -243,6 +289,14 @@ DNS 接口会附带以下调试/缓存头：
   "DOH_CACHE_NEGATIVE_MAX_TTL": "300"
 }
 ```
+
+推荐使用 Cloudflare secret 配置 `DNS_API_KEY`：
+
+```bash
+wrangler secret put DNS_API_KEY
+```
+
+本地开发时也可以通过 `.dev.vars` 提供该值，但不要提交包含真实 key 的文件。
 
 ## 项目结构
 
@@ -271,12 +325,14 @@ DNS 接口会附带以下调试/缓存头：
 - 上游异常与超时处理
 - 旧版 `/api` IP 路由兼容性
 - 负缓存 TTL 逻辑
+- `DNS_API_KEY` 启用/未启用两种访问模式
 
 ## 注意事项
 
 - 指定 IP 查询依赖 `ip-api.com`，其可用性与限制受第三方服务影响
 - `DOH_UPSTREAM_URL` 必须使用 `https`
 - `DOH_CACHE_MIN_TTL` 不能大于 `DOH_CACHE_MAX_TTL`
+- `DNS_API_KEY` 启用后，DNS 客户端需要改为访问 `/<DNS_API_KEY>/dns-query` 或 `/<DNS_API_KEY>/resolve`
 - JSONP 模式必须显式提供 `callback`
 
 ## 相关文件
@@ -289,4 +345,4 @@ DNS 接口会附带以下调试/缓存头：
 
 ## License
 
-如需开源发布，建议补充项目许可证说明。当前仓库未在 README 中声明 License。 
+如需开源发布，建议补充项目许可证说明。当前仓库未在 README 中声明 License。

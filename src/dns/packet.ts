@@ -66,10 +66,10 @@ export interface DnsMessage {
   answers: DnsResourceRecord[];
   authorities: DnsResourceRecord[];
   additionals: DnsResourceRecord[];
-  raw: Uint8Array;
+  raw: Uint8Array<ArrayBuffer>;
 }
 
-export function parseDnsMessage(input: Uint8Array | ArrayBuffer): DnsMessage {
+export function parseDnsMessage(input: Uint8Array<ArrayBufferLike> | ArrayBuffer): DnsMessage {
   const raw = toUint8Array(input);
   if (raw.byteLength < DNS_HEADER_LENGTH) {
     throw new Error('DNS message is too short');
@@ -124,11 +124,11 @@ export function parseDnsMessage(input: Uint8Array | ArrayBuffer): DnsMessage {
     answers: answers.records,
     authorities: authorities.records,
     additionals: additionals.records,
-    raw,
+    raw: cloneUint8Array(raw),
   };
 }
 
-export function validateDnsQuery(input: Uint8Array | ArrayBuffer): DnsMessage {
+export function validateDnsQuery(input: Uint8Array<ArrayBufferLike> | ArrayBuffer): DnsMessage {
   const message = parseDnsMessage(input);
   if (message.qr) {
     throw new Error('DNS query must not be a response');
@@ -139,7 +139,7 @@ export function validateDnsQuery(input: Uint8Array | ArrayBuffer): DnsMessage {
   return message;
 }
 
-export function validateDnsResponse(query: DnsMessage, input: Uint8Array | ArrayBuffer): DnsMessage {
+export function validateDnsResponse(query: DnsMessage, input: Uint8Array<ArrayBufferLike> | ArrayBuffer): DnsMessage {
   const response = parseDnsMessage(input);
   if (!response.qr) {
     throw new Error('DNS response must have the QR flag set');
@@ -278,13 +278,13 @@ export function buildDnsQuery(options: {
   return output;
 }
 
-export function getTransactionId(input: Uint8Array | ArrayBuffer): number {
+export function getTransactionId(input: Uint8Array<ArrayBufferLike> | ArrayBuffer): number {
   const raw = toUint8Array(input);
   ensureRange(raw, 0, 2, 'DNS message is too short');
   return (raw[0] << 8) | raw[1];
 }
 
-export function zeroTransactionId(input: Uint8Array | ArrayBuffer): Uint8Array {
+export function zeroTransactionId(input: Uint8Array<ArrayBufferLike> | ArrayBuffer): Uint8Array<ArrayBuffer> {
   const raw = new Uint8Array(toUint8Array(input));
   ensureRange(raw, 0, 2, 'DNS message is too short');
   raw[0] = 0;
@@ -292,7 +292,7 @@ export function zeroTransactionId(input: Uint8Array | ArrayBuffer): Uint8Array {
   return raw;
 }
 
-export function withTransactionId(input: Uint8Array | ArrayBuffer, id: number): Uint8Array {
+export function withTransactionId(input: Uint8Array<ArrayBufferLike> | ArrayBuffer, id: number): Uint8Array<ArrayBuffer> {
   const raw = new Uint8Array(toUint8Array(input));
   ensureRange(raw, 0, 2, 'DNS message is too short');
   raw[0] = (id >> 8) & 0xff;
@@ -300,7 +300,7 @@ export function withTransactionId(input: Uint8Array | ArrayBuffer, id: number): 
   return raw;
 }
 
-export function encodeBase64Url(input: Uint8Array | ArrayBuffer): string {
+export function encodeBase64Url(input: Uint8Array<ArrayBufferLike> | ArrayBuffer): string {
   const raw = toUint8Array(input);
   let binary = '';
   for (const byte of raw) {
@@ -344,7 +344,7 @@ export function encodeDomainName(name: string): Uint8Array {
   return Uint8Array.from(chunks);
 }
 
-export function readName(input: Uint8Array | ArrayBuffer, offset: number): { name: string; offset: number } {
+export function readName(input: Uint8Array<ArrayBufferLike> | ArrayBuffer, offset: number): { name: string; offset: number } {
   const raw = toUint8Array(input);
   const labels: string[] = [];
   let cursor = offset;
@@ -637,6 +637,12 @@ function ensureRange(raw: Uint8Array, offset: number, length: number, message: s
   }
 }
 
-function toUint8Array(input: Uint8Array | ArrayBuffer): Uint8Array {
-  return input instanceof Uint8Array ? input : new Uint8Array(input);
+function cloneUint8Array(input: Uint8Array<ArrayBufferLike>): Uint8Array<ArrayBuffer> {
+  const clone = new Uint8Array(input.byteLength);
+  clone.set(input);
+  return clone;
+}
+
+function toUint8Array(input: Uint8Array<ArrayBufferLike> | ArrayBuffer): Uint8Array<ArrayBuffer> {
+  return input instanceof Uint8Array ? cloneUint8Array(input) : new Uint8Array(input);
 }

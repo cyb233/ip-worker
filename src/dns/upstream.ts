@@ -8,7 +8,7 @@ export class DnsBadGatewayError extends Error {}
 export interface UpstreamDnsResponse {
   query: DnsMessage;
   response: DnsMessage;
-  responseBytes: Uint8Array;
+  responseBytes: Uint8Array<ArrayBuffer>;
   upstreamHost: string;
 }
 
@@ -40,7 +40,7 @@ export async function fetchUpstreamDnsResponse(
       throw new DnsBadGatewayError('Upstream DoH response did not return application/dns-message');
     }
 
-    const responseBytes = new Uint8Array(await response.arrayBuffer());
+    const responseBytes: Uint8Array<ArrayBuffer> = new Uint8Array(await response.arrayBuffer());
     const parsedResponse = validateDnsResponse(query, responseBytes);
 
     return {

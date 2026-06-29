@@ -1,4 +1,4 @@
-import { DohConfig, DohEnv, getDohConfig } from '../config';
+import { DohConfig, getDohConfig, type WorkerConfigEnv } from '../config';
 import {
   DnsMessage,
   encodeBase64Url,
@@ -13,7 +13,7 @@ import { fetchUpstreamDnsResponse } from './upstream';
 type CacheStatus = 'HIT' | 'MISS' | 'BYPASS';
 
 export interface DnsResolutionResult {
-  responseBytes: Uint8Array;
+  responseBytes: Uint8Array<ArrayBuffer>;
   response: DnsMessage;
   cacheStatus: CacheStatus;
   cacheTtl?: number;
@@ -22,7 +22,7 @@ export interface DnsResolutionResult {
 
 export async function resolveDnsQuery(
   queryBytes: Uint8Array,
-  env: Env | DohEnv,
+  env: WorkerConfigEnv,
 ): Promise<DnsResolutionResult> {
   const config = getDohConfig(env);
   const query = validateDnsQuery(queryBytes);
@@ -33,7 +33,7 @@ export async function resolveDnsQuery(
   if (config.cacheEnabled) {
     const cachedResponse = await caches.default.match(cacheRequest);
     if (cachedResponse) {
-      const normalizedResponse = new Uint8Array(await cachedResponse.arrayBuffer());
+      const normalizedResponse: Uint8Array<ArrayBuffer> = new Uint8Array(await cachedResponse.arrayBuffer());
       const responseBytes = withTransactionId(normalizedResponse, requestId);
       const response = validateDnsResponse(query, responseBytes);
       return {

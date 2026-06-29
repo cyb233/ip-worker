@@ -38,6 +38,25 @@
           <li><b>JSON 解析：</b> <code>/resolve</code></li>
         </ul>
 
+        <h2>DNS_API_KEY 可选鉴权</h2>
+        <p>
+          默认情况下，DNS 接口是公开的；当配置了 <code>DNS_API_KEY</code> 后，访问路径需要增加一个 key 前缀。
+        </p>
+        <pre>
+/&lt;DNS_API_KEY&gt;/dns-query
+/&lt;DNS_API_KEY&gt;/resolve
+        </pre>
+        <p>
+          例如：
+        </p>
+        <ul>
+          <li><code>/test-key/dns-query?dns=AAABAAABAAAAAAAAA2RucwdleGFtcGxlA2NvbQAAAQAB</code></li>
+          <li><code>/test-key/resolve?name=example.com&type=A</code></li>
+        </ul>
+        <p>
+          注意：路径中的 key 可能会出现在日志、浏览器历史或代理记录中，请使用高强度且 URL-safe 的随机值，并优先通过 Cloudflare secret 配置。
+        </p>
+
         <h2>标准 DoH</h2>
         <p>
           <code>/dns-query</code> 实现标准 DNS over HTTPS 接口，支持 RFC 8484 风格的 GET 与 POST。
@@ -51,12 +70,16 @@
               <code>/dns-query?dns=AAABAAABAAAAAAAAA2RucwdleGFtcGxlA2NvbQAAAQAB</code>
             </a>
           </li>
+          <li>
+            <code>/&lt;DNS_API_KEY&gt;/dns-query?dns=AAABAAABAAAAAAAAA2RucwdleGFtcGxlA2NvbQAAAQAB</code>
+          </li>
         </ul>
 
         <h4>POST</h4>
         <small>请求与响应的 <code>Content-Type</code> 均为 <code>application/dns-message</code></small>
         <pre>
 POST /dns-query
+POST /&lt;DNS_API_KEY&gt;/dns-query
 Content-Type: application/dns-message
 Accept: application/dns-message
 
@@ -84,6 +107,9 @@ Accept: application/dns-message
             <a href="/resolve?name=example.com&type=MX&do=1">
               <code>/resolve?name=example.com&type=MX&do=1</code>
             </a>
+          </li>
+          <li>
+            <code>/&lt;DNS_API_KEY&gt;/resolve?name=example.com&type=A</code>
           </li>
         </ul>
 

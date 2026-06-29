@@ -1,29 +1,46 @@
-import { Hono } from 'hono';
+import { Context, Hono } from 'hono';
 
+import { getDnsApiKey, type WorkerConfigEnv } from '../config';
 import { resolveDnsQuery } from './cache';
 import { toDnsJsonResponse } from './json';
 import { buildDnsQuery, decodeBase64Url, parseBinaryFlag, resolveRecordType } from './packet';
 import { DnsBadGatewayError, DnsGatewayTimeoutError } from './upstream';
 
-export const app = new Hono<{ Bindings: Env }>();
+type DnsRouteContext = {
+  Bindings: WorkerConfigEnv;
+};
 
-app.get('/dns-query', async (c) => {
-  try {
+type DnsContext = Context<DnsRouteContext>;
+
+export const app = new Hono<DnsRouteContext>();
+
+app.get('/dns-query', handleGetDnsQuery);
+app.post('/dns-query', handlePostDnsQuery);
+app.all('/dns-query', (c) => handleMethodNotAllowed(c, ['GET', 'POST']));
+
+app.get('/:dnsApiKey/dns-query', handleGetDnsQuery);
+app.post('/:dnsApiKey/dns-query', handlePostDnsQuery);
+app.all('/:dnsApiKey/dns-query', (c) => handleMethodNotAllowed(c, ['GET', 'POST']));
+
+app.get('/resolve', handleResolve);
+app.all('/resolve', (c) => handleMethodNotAllowed(c, ['GET']));
+
+app.get('/:dnsApiKey/resolve', handleResolve);
+app.all('/:dnsApiKey/resolve', (c) => handleMethodNotAllowed(c, ['GET']));
+
+async function handleGetDnsQuery(c: DnsContext) {
+  return handleDnsQuery(c, () => {
     const encodedMessage = c.req.query('dns');
     if (!encodedMessage) {
       throw new HttpError(400, 'Missing dns query parameter');
     }
 
-    const queryBytes = decodeBase64Url(encodedMessage);
-    const result = await resolveDnsQuery(queryBytes, c.env);
-    return c.body(result.responseBytes, 200, buildDnsHeaders(result));
-  } catch (error) {
-    return handleDnsError(error);
-  }
-});
+    return decodeBase64Url(encodedMessage);
+  });
+}
 
-app.post('/dns-query', async (c) => {
-  try {
+async function handlePostDnsQuery(c: DnsContext) {
+  return handleDnsQuery(c, async () => {
     const contentType = c.req.header('Content-Type') || '';
     if (!contentType.toLowerCase().startsWith('application/dns-message')) {
       throw new HttpError(415, 'Content-Type must be application/dns-message');
@@ -34,16 +51,31 @@ app.post('/dns-query', async (c) => {
       throw new HttpError(400, 'DNS request body must not be empty');
     }
 
+    return queryBytes;
+  });
+}
+
+async function handleDnsQuery(c: DnsContext, readQueryBytes: () => Promise<Uint8Array> | Uint8Array) {
+  const authError = ensureDnsAccess(c);
+  if (authError) {
+    return authError;
+  }
+
+  try {
+    const queryBytes = await readQueryBytes();
     const result = await resolveDnsQuery(queryBytes, c.env);
     return c.body(result.responseBytes, 200, buildDnsHeaders(result));
   } catch (error) {
     return handleDnsError(error);
   }
-});
+}
 
-app.all('/dns-query', () => methodNotAllowed(['GET', 'POST']));
+async function handleResolve(c: DnsContext) {
+  const authError = ensureDnsAccess(c);
+  if (authError) {
+    return authError;
+  }
 
-app.get('/resolve', async (c) => {
   try {
     const name = c.req.query('name');
     if (!name) {
@@ -69,9 +101,38 @@ app.get('/resolve', async (c) => {
   } catch (error) {
     return handleDnsError(error);
   }
-});
+}
 
-app.all('/resolve', () => methodNotAllowed(['GET']));
+function ensureDnsAccess(c: DnsContext): Response | undefined {
+  try {
+    const configuredApiKey = getDnsApiKey(c.env);
+    const routeApiKey = c.req.param('dnsApiKey');
+
+    if (!configuredApiKey) {
+      if (routeApiKey) {
+        return new Response('Not Found', { status: 404 });
+      }
+      return undefined;
+    }
+
+    if (routeApiKey !== configuredApiKey) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    return undefined;
+  } catch (error) {
+    return handleDnsError(error);
+  }
+}
+
+function handleMethodNotAllowed(c: DnsContext, allowedMethods: string[]): Response {
+  const authError = ensureDnsAccess(c);
+  if (authError) {
+    return authError;
+  }
+
+  return methodNotAllowed(allowedMethods);
+}
 
 interface DnsRouteResult {
   cacheStatus: 'HIT' | 'MISS' | 'BYPASS';
@@ -89,14 +150,14 @@ class HttpError extends Error {
   }
 }
 
-function buildDnsHeaders(result: DnsRouteResult): HeadersInit {
+function buildDnsHeaders(result: DnsRouteResult): Record<string, string> {
   return {
     ...buildCacheHeaders(result),
     'Content-Type': 'application/dns-message',
   };
 }
 
-function buildCacheHeaders(result: DnsRouteResult): HeadersInit {
+function buildCacheHeaders(result: DnsRouteResult): Record<string, string> {
   const headers: Record<string, string> = {
     'X-DNS-Cache': result.cacheStatus,
     'X-DoH-Upstream': result.upstreamHost,
