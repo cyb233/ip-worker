@@ -21,6 +21,22 @@
    */
   "placement": { "mode": "smart" },
 
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "STATS_COUNTER",
+        "class_name": "StatsCounter"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["StatsCounter"]
+    }
+  ],
+
   /**
    * Bindings
    * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including

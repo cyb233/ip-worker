@@ -1,6 +1,7 @@
 import { Context, Hono } from 'hono';
 
 import { getDnsApiKey, type WorkerConfigEnv } from '@/config';
+import { createSuccessCounterMiddleware } from '@/stats/middleware';
 import { resolveDnsQuery } from './cache';
 import { toDnsJsonResponse } from './json';
 import { buildDnsQuery, decodeBase64Url, parseBinaryFlag, resolveRecordType } from './packet';
@@ -13,6 +14,10 @@ type DnsRouteContext = {
 type DnsContext = Context<DnsRouteContext>;
 
 export const app = new Hono<DnsRouteContext>();
+app.use('/dns-query', createSuccessCounterMiddleware('dns'));
+app.use('/:dnsApiKey/dns-query', createSuccessCounterMiddleware('dns'));
+app.use('/resolve', createSuccessCounterMiddleware('dns'));
+app.use('/:dnsApiKey/resolve', createSuccessCounterMiddleware('dns'));
 
 app.get('/dns-query', handleGetDnsQuery);
 app.post('/dns-query', handlePostDnsQuery);

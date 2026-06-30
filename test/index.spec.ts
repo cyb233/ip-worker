@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import worker from '../src/index';
 import { buildDnsQuery, decodeBase64Url, encodeBase64Url, encodeDomainName } from '../src/dns/packet';
+import { formatUtc8DateTime, getUtc8DateKey, StatsCounter } from '../src/stats/index';
 
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
 
@@ -307,6 +308,104 @@ describe('DNS over HTTPS worker', () => {
     });
   });
 
+  it('records successful IP requests in stats', async () => {
+    const now = Date.UTC(2026, 5, 30, 2, 30, 0);
+    const statsEnv = createStatsEnv();
+
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+
+    const response = await dispatch('/api?format=json', undefined, statsEnv);
+    expect(response.status).toBe(200);
+
+    const statsResponse = await dispatch('/stats', undefined, statsEnv);
+    expect(statsResponse.status).toBe(200);
+    expect(await statsResponse.json<any>()).toEqual({
+      timezone: 'UTC+8',
+      startAt: formatUtc8DateTime(now),
+      ip: { total: 1, yesterday: 0, today: 1 },
+      dns: { total: 0, yesterday: 0, today: 0 },
+    });
+  });
+
+  it('does not record failed IP requests in stats', async () => {
+    const statsEnv = createStatsEnv();
+
+    const response = await dispatch('/api/jsonp', undefined, statsEnv);
+    expect(response.status).toBe(400);
+
+    const statsResponse = await dispatch('/stats', undefined, statsEnv);
+    expect(statsResponse.status).toBe(200);
+    expect(await statsResponse.json<any>()).toEqual({
+      timezone: 'UTC+8',
+      startAt: null,
+      ip: { total: 0, yesterday: 0, today: 0 },
+      dns: { total: 0, yesterday: 0, today: 0 },
+    });
+  });
+
+  it('records successful DNS requests in stats', async () => {
+    const now = Date.UTC(2026, 5, 30, 3, 0, 0);
+    const statsEnv = createStatsEnv();
+
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      const body = new Uint8Array(init?.body as ArrayBuffer);
+      return new Response(buildAResponse('stats-dns.example', getId(body), '198.51.100.8', 180), {
+        headers: { 'Content-Type': 'application/dns-message' },
+      });
+    });
+
+    const response = await dispatch('/resolve?name=stats-dns.example&type=A', undefined, statsEnv);
+    expect(response.status).toBe(200);
+
+    const statsResponse = await dispatch('/stats', undefined, statsEnv);
+    expect(statsResponse.status).toBe(200);
+    expect(await statsResponse.json<any>()).toEqual({
+      timezone: 'UTC+8',
+      startAt: formatUtc8DateTime(now),
+      ip: { total: 0, yesterday: 0, today: 0 },
+      dns: { total: 1, yesterday: 0, today: 1 },
+    });
+  });
+
+  it('does not record failed DNS requests in stats', async () => {
+    const statsEnv = createStatsEnv();
+
+    const response = await dispatch('/resolve', undefined, statsEnv);
+    expect(response.status).toBe(400);
+
+    const statsResponse = await dispatch('/stats', undefined, statsEnv);
+    expect(statsResponse.status).toBe(200);
+    expect(await statsResponse.json<any>()).toEqual({
+      timezone: 'UTC+8',
+      startAt: null,
+      ip: { total: 0, yesterday: 0, today: 0 },
+      dns: { total: 0, yesterday: 0, today: 0 },
+    });
+  });
+
+  it('keeps stats start time and UTC+8 day buckets consistent', async () => {
+    const namespace = createStatsNamespace();
+    const first = Date.UTC(2026, 5, 29, 15, 59, 59);
+    const second = Date.UTC(2026, 5, 29, 16, 0, 1);
+    const summaryNow = Date.UTC(2026, 5, 30, 2, 0, 0);
+
+    expect(getUtc8DateKey(first)).toBe('2026-06-29');
+    expect(getUtc8DateKey(second)).toBe('2026-06-30');
+
+    await incrementStats(namespace, 'ip', first);
+    await incrementStats(namespace, 'ip', second);
+    await incrementStats(namespace, 'dns', second);
+
+    const summary = await getStatsSummaryForTest(namespace, summaryNow);
+    expect(summary).toEqual({
+      timezone: 'UTC+8',
+      startAt: formatUtc8DateTime(first),
+      ip: { total: 2, yesterday: 1, today: 1 },
+      dns: { total: 1, yesterday: 0, today: 1 },
+    });
+  });
+
   it('negative responses can be cached from SOA TTL', async () => {
     const firstQuery = buildDnsQuery({ id: 0x7777, name: 'nxdomain-test.example', type: 1 });
     const secondQuery = buildDnsQuery({ id: 0x8888, name: 'nxdomain-test.example', type: 1 });
@@ -331,6 +430,26 @@ describe('DNS over HTTPS worker', () => {
 
 async function dispatch(path: string, init?: RequestInit, envOverride?: Partial<Env>): Promise<Response> {
   const request = new IncomingRequest(`https://example.com${path}`, init);
+  if (!request.cf) {
+    Object.defineProperty(request, 'cf', {
+      value: {
+        asn: 13335,
+        colo: 'HKG',
+        continent: 'AS',
+        country: 'HK',
+        city: 'Hong Kong',
+        isEUCountry: false,
+        asOrganization: 'Cloudflare',
+        longitude: '114.1694',
+        latitude: '22.3193',
+        postalCode: '999077',
+        region: 'Hong Kong',
+        regionCode: 'HCW',
+        timezone: 'Asia/Hong_Kong',
+      } satisfies Partial<IncomingRequestCfProperties>,
+      configurable: true,
+    });
+  }
   const ctx = createExecutionContext();
   const response = await worker.fetch(request, { ...env, ...envOverride }, ctx);
   await waitOnExecutionContext(ctx);
@@ -439,4 +558,70 @@ function decodeQuestion(message: Uint8Array): { name: string; type: number } {
     name: `${labels.join('.')}.`,
     type,
   };
+}
+
+function createStatsNamespace() {
+  return new StatsCounter({
+    storage: createInMemoryStorage(),
+  } as DurableObjectState);
+}
+
+function createStatsEnv(): Partial<Env> {
+  const namespace = createStatsNamespace();
+  return {
+    STATS_COUNTER: {
+      idFromName: () => ({ toString: () => 'stats-counter' }) as DurableObjectId,
+      get: () => ({
+        fetch: (input, init) => namespace.fetch(new Request(String(input), init)),
+      }),
+    } as unknown as DurableObjectNamespace,
+  };
+}
+
+async function incrementStats(namespace: StatsCounter, kind: 'ip' | 'dns', now: number) {
+  const response = await namespace.fetch(new Request('https://stats/increment', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind, now }),
+  }));
+  expect(response.status).toBe(204);
+}
+
+async function getStatsSummaryForTest(namespace: StatsCounter, now: number) {
+  const response = await namespace.fetch(new Request(`https://stats/summary?now=${now}`));
+  expect(response.status).toBe(200);
+  return response.json<any>();
+}
+
+function createInMemoryStorage() {
+  const store = new Map<string, unknown>();
+
+  return {
+    async get<T>(key: string) {
+      return store.get(key) as T | undefined;
+    },
+    async put<T>(keyOrEntries: string | Record<string, T>, value?: T) {
+      if (typeof keyOrEntries === 'string') {
+        store.set(keyOrEntries, value);
+        return;
+      }
+
+      for (const [key, entryValue] of Object.entries(keyOrEntries)) {
+        store.set(key, entryValue);
+      }
+    },
+    async transaction<T>(closure: (txn: {
+      get<U>(key: string): Promise<U | undefined>;
+      put<U>(entries: Record<string, U>): Promise<void>;
+    }) => Promise<T>) {
+      return closure({
+        get: async <U>(key: string) => store.get(key) as U | undefined,
+        put: async <U>(entries: Record<string, U>) => {
+          for (const [key, entryValue] of Object.entries(entries)) {
+            store.set(key, entryValue);
+          }
+        },
+      });
+    },
+  } as Pick<DurableObjectStorage, 'get' | 'put' | 'transaction'>;
 }

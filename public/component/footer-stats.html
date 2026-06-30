@@ -1,0 +1,110 @@
+<template component>
+  <style>
+    :host {
+      display: block;
+      margin-bottom: 1em;
+    }
+
+    table {
+      margin: 0 auto;
+      min-width: min(100%, 420px);
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    th,
+    td {
+      border: 1px solid #ddd;
+      padding: 0.35em 0.6em;
+    }
+
+    .hint {
+      color: #777;
+    }
+  </style>
+
+  <table>
+    <thead>
+      <tr>
+        <th>类型</th>
+        <th>累计请求量</th>
+        <th>昨日请求量</th>
+        <th>今日请求量</th>
+        <th>统计开始时间（UTC+8）</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>IP</td>
+        <td>{{ip.total}}</td>
+        <td>{{ip.yesterday}}</td>
+        <td>{{ip.today}}</td>
+        <td attr:rowspan="2">{{startAt}}</td>
+      </tr>
+      <tr>
+        <td>DNS</td>
+        <td>{{dns.total}}</td>
+        <td>{{dns.yesterday}}</td>
+        <td>{{dns.today}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="hint" x-if="loadFailed">统计加载失败，已显示空数据。</p>
+
+  <script>
+    export default {
+      data: {
+        startAt: '暂无',
+        ip: {
+          total: 0,
+          yesterday: 0,
+          today: 0,
+        },
+        dns: {
+          total: 0,
+          yesterday: 0,
+          today: 0,
+        },
+        loadFailed: false,
+      },
+      ready() {
+        this.loadStats();
+      },
+      proto: {
+        async loadStats() {
+          try {
+            const response = await fetch('/stats', {
+              headers: {
+                Accept: 'application/json',
+              },
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const stats = await response.json();
+            this.startAt = stats.startAt || '暂无';
+            this.ip = this.normalizeStats(stats.ip);
+            this.dns = this.normalizeStats(stats.dns);
+            this.loadFailed = false;
+          } catch (error) {
+            console.error('Failed to load footer stats', error);
+            this.startAt = '暂无';
+            this.ip = this.normalizeStats();
+            this.dns = this.normalizeStats();
+            this.loadFailed = true;
+          }
+        },
+        normalizeStats(stats) {
+          return {
+            total: Number.isFinite(stats?.total) ? stats.total : 0,
+            yesterday: Number.isFinite(stats?.yesterday) ? stats.yesterday : 0,
+            today: Number.isFinite(stats?.today) ? stats.today : 0,
+          };
+        },
+      },
+    };
+  </script>
+</template>

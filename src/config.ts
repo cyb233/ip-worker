@@ -6,6 +6,8 @@ export interface DohEnv {
   DOH_CACHE_MAX_TTL?: string;
   DOH_CACHE_NEGATIVE_MAX_TTL?: string;
   DNS_API_KEY?: string;
+  STATS_COUNTER: DurableObjectNamespace;
+  STATS_NAMESPACE?: string;
 }
 
 export type WorkerConfigEnv = Env & DohEnv;

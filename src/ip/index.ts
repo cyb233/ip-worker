@@ -1,8 +1,11 @@
 import { Hono, Context } from 'hono';
 import { IpInfo, IpApiResponse } from '@/models';
+import type { WorkerConfigEnv } from '@/config';
+import { createSuccessCounterMiddleware } from '@/stats/middleware';
 import { toXml } from '@/utils';
 
-export const app = new Hono();
+export const app = new Hono<{ Bindings: WorkerConfigEnv }>();
+app.use(createSuccessCounterMiddleware('ip'));
 
 app.all('/ip', async (c) => {
   const { ip, format = 'json', callback } = c.req.query();
