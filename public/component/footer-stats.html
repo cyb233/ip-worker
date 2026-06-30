@@ -50,8 +50,6 @@
     </tbody>
   </table>
 
-  <p class="hint" x-if="loadFailed">统计加载失败，已显示空数据。</p>
-
   <script>
     export default {
       data: {
@@ -66,7 +64,6 @@
           yesterday: 0,
           today: 0,
         },
-        loadFailed: false,
       },
       ready() {
         this.loadStats();
@@ -88,13 +85,11 @@
             this.startAt = stats.startAt || '暂无';
             this.ip = this.normalizeStats(stats.ip);
             this.dns = this.normalizeStats(stats.dns);
-            this.loadFailed = false;
           } catch (error) {
             console.error('Failed to load footer stats', error);
             this.startAt = '暂无';
             this.ip = this.normalizeStats();
             this.dns = this.normalizeStats();
-            this.loadFailed = true;
           }
         },
         normalizeStats(stats) {
