@@ -1,4 +1,4 @@
-import { DohConfig } from '../config';
+import { DohConfig } from '@/config';
 import { DnsMessage, validateDnsQuery, validateDnsResponse } from './packet';
 
 export class DnsGatewayTimeoutError extends Error {}

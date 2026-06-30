@@ -1,6 +1,6 @@
 import { Context, Hono } from 'hono';
 
-import { getDnsApiKey, type WorkerConfigEnv } from '../config';
+import { getDnsApiKey, type WorkerConfigEnv } from '@/config';
 import { resolveDnsQuery } from './cache';
 import { toDnsJsonResponse } from './json';
 import { buildDnsQuery, decodeBase64Url, parseBinaryFlag, resolveRecordType } from './packet';

@@ -1,5 +1,5 @@
 import { DnsMessage, DnsResourceRecord } from './packet';
-import { DnsAnswer, DnsJsonResponse } from '../models';
+import { DnsAnswer, DnsJsonResponse } from '@/models';
 
 export function toDnsJsonResponse(message: DnsMessage): DnsJsonResponse {
   return {

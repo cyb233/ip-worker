@@ -1,4 +1,4 @@
-import { DohConfig, getDohConfig, type WorkerConfigEnv } from '../config';
+import { DohConfig, getDohConfig, type WorkerConfigEnv } from '@/config';
 import {
   DnsMessage,
   encodeBase64Url,
