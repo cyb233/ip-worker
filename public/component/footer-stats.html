@@ -36,14 +36,14 @@
     <tbody>
       <tr>
         <td>IP</td>
-        <td>{{ip.total}}</td>
+        <td attr:title="ip.total">{{ip.totalDisplay}}</td>
         <td>{{ip.yesterday}}</td>
         <td>{{ip.today}}</td>
         <td attr:rowspan="2">{{startAt}}</td>
       </tr>
       <tr>
         <td>DNS</td>
-        <td>{{dns.total}}</td>
+        <td attr:title="dns.total">{{dns.totalDisplay}}</td>
         <td>{{dns.yesterday}}</td>
         <td>{{dns.today}}</td>
       </tr>
@@ -93,11 +93,35 @@
           }
         },
         normalizeStats(stats) {
+          const total = Number.isFinite(stats?.total) ? stats.total : 0;
+
           return {
-            total: Number.isFinite(stats?.total) ? stats.total : 0,
+            total,
+            totalDisplay: this.formatCount(total),
             yesterday: Number.isFinite(stats?.yesterday) ? stats.yesterday : 0,
             today: Number.isFinite(stats?.today) ? stats.today : 0,
           };
+        },
+        formatCount(value) {
+          if (!Number.isFinite(value)) {
+            return '0';
+          }
+
+          const units = [
+            { value: 1e12, suffix: '万亿' },
+            { value: 1e8, suffix: '亿' },
+            { value: 1e4, suffix: '万' },
+          ];
+
+          for (const unit of units) {
+            if (value >= unit.value) {
+              const scaled = value / unit.value;
+              const digits = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+              return `${Number(scaled.toFixed(digits))}${unit.suffix}`;
+            }
+          }
+
+          return `${value}`;
         },
       },
     };
