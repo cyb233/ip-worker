@@ -10,11 +10,11 @@
     "cf-typegen": "wrangler types"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.20",
+    "@cloudflare/vitest-pool-workers": "^0.20.1",
     "@types/node": "^26.0.1",
     "typescript": "^5.5.2",
     "vitest": "^4.1.0",
-    "wrangler": "^4.105.0"
+    "wrangler": "^4.118.0"
   },
   "dependencies": {
     "hono": "^4.12.25"
