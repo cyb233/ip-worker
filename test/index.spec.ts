@@ -107,6 +107,34 @@ describe('DNS over HTTPS worker', () => {
       TTL: 180,
       data: '198.51.100.7',
     });
+    expect(payload).not.toHaveProperty('Authority');
+    expect(payload).not.toHaveProperty('Additional');
+  });
+
+  it('omits empty record sections from /resolve responses', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      const body = new Uint8Array(init?.body as ArrayBuffer);
+      return new Response(buildNxDomainResponse('missing.example', getId(body), 45), {
+        headers: { 'Content-Type': 'application/dns-message' },
+      });
+    });
+
+    const response = await dispatch('/resolve?name=missing.example&type=A');
+    expect(response.status).toBe(200);
+
+    const payload = await response.json<any>();
+    expect(payload).toMatchObject({
+      Status: 3,
+      Question: [{ name: 'missing.example.', type: 1 }],
+      Authority: [{
+        name: 'missing.example.',
+        type: 6,
+        TTL: 45,
+        data: 'ns1.example. hostmaster.example. 2024062601 3600 600 86400 45',
+      }],
+    });
+    expect(payload).not.toHaveProperty('Answer');
+    expect(payload).not.toHaveProperty('Additional');
   });
 
   it('returns 400 for invalid /resolve query parameters', async () => {

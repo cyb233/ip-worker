@@ -247,11 +247,11 @@ POST /<DNS_API_KEY>/dns-query
   ],
   "Answer": [
     { "name": "example.com.", "type": 1, "TTL": 300, "data": "93.184.216.34" }
-  ],
-  "Authority": [],
-  "Additional": []
+  ]
 }
 ```
+
+`Answer`、`Authority` 与 `Additional` 仅在对应区段含有记录时返回；`Additional` 不包含 EDNS `OPT`（类型 `41`）伪记录。
 
 ### 3. 响应头
 

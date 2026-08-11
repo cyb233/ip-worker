@@ -3,7 +3,7 @@ export interface DnsQuestion {
   type: number;
 }
 
-export interface DnsAnswer {
+export interface DnsRecord {
   name: string;
   type: number;
   TTL: number;
@@ -18,7 +18,8 @@ export interface DnsJsonResponse {
   AD: boolean;
   CD: boolean;
   Question: DnsQuestion[];
-  Answer: DnsAnswer[];
-  Authority: DnsAnswer[];
-  Additional: DnsAnswer[];
+  Answer?: DnsRecord[];
+  Authority?: DnsRecord[];
+  Additional?: DnsRecord[];
+  Comment?: string;
 }

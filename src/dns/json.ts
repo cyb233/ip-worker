@@ -1,7 +1,13 @@
+import { DnsJsonResponse, DnsRecord } from '@/models';
 import { DnsMessage, DnsResourceRecord } from './packet';
-import { DnsAnswer, DnsJsonResponse } from '@/models';
+
+const DNS_TYPE_OPT = 41;
 
 export function toDnsJsonResponse(message: DnsMessage): DnsJsonResponse {
+  const answer = toJsonRecords(message.answers);
+  const authority = toJsonRecords(message.authorities);
+  const additional = toJsonRecords(message.additionals.filter((record) => record.type !== DNS_TYPE_OPT));
+
   return {
     Status: message.rcode,
     TC: message.tc,
@@ -13,13 +19,13 @@ export function toDnsJsonResponse(message: DnsMessage): DnsJsonResponse {
       name: question.name,
       type: question.type,
     })),
-    Answer: toJsonRecords(message.answers),
-    Authority: toJsonRecords(message.authorities),
-    Additional: toJsonRecords(message.additionals.filter((record) => record.type !== 41)),
+    ...(answer.length > 0 ? { Answer: answer } : {}),
+    ...(authority.length > 0 ? { Authority: authority } : {}),
+    ...(additional.length > 0 ? { Additional: additional } : {}),
   };
 }
 
-function toJsonRecords(records: DnsResourceRecord[]): DnsAnswer[] {
+function toJsonRecords(records: DnsResourceRecord[]): DnsRecord[] {
   return records.map((record) => ({
     name: record.name,
     type: record.type,
