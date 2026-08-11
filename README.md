@@ -272,8 +272,7 @@ DNS 接口会附带以下调试/缓存头：
 | `DOH_UPSTREAM_URL` | `https://cloudflare-dns.com/dns-query` | 上游 DoH 服务地址 |
 | `DOH_TIMEOUT_MS` | `5000` | 上游请求超时时间，单位毫秒 |
 | `DOH_CACHE_ENABLED` | `1` | 是否启用缓存 |
-| `DOH_CACHE_MIN_TTL` | `0` | 缓存 TTL 下限 |
-| `DOH_CACHE_MAX_TTL` | `86400` | 缓存 TTL 上限 |
+| `DOH_CACHE_MAX_TTL` | `86400` | 缓存 TTL 上限（不会超过上游 TTL） |
 | `DOH_CACHE_NEGATIVE_MAX_TTL` | `300` | 负缓存 TTL 上限 |
 | `DNS_API_KEY` | 未设置 | 可选。设置后，DNS 接口需要通过 `/<DNS_API_KEY>/...` 访问 |
 
@@ -284,7 +283,6 @@ DNS 接口会附带以下调试/缓存头：
   "DOH_UPSTREAM_URL": "https://cloudflare-dns.com/dns-query",
   "DOH_TIMEOUT_MS": "5000",
   "DOH_CACHE_ENABLED": "1",
-  "DOH_CACHE_MIN_TTL": "0",
   "DOH_CACHE_MAX_TTL": "86400",
   "DOH_CACHE_NEGATIVE_MAX_TTL": "300"
 }
@@ -331,7 +329,7 @@ wrangler secret put DNS_API_KEY
 
 - 指定 IP 查询依赖 `ip-api.com`，其可用性与限制受第三方服务影响
 - `DOH_UPSTREAM_URL` 必须使用 `https`
-- `DOH_CACHE_MIN_TTL` 不能大于 `DOH_CACHE_MAX_TTL`
+- DNS 缓存的 TTL 始终不超过上游响应中的 TTL
 - `DNS_API_KEY` 启用后，DNS 客户端需要改为访问 `/<DNS_API_KEY>/dns-query` 或 `/<DNS_API_KEY>/resolve`
 - JSONP 模式必须显式提供 `callback`
 

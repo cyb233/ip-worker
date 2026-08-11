@@ -2,7 +2,7 @@ import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import worker from '../src/index';
-import { buildDnsQuery, decodeBase64Url, encodeBase64Url, encodeDomainName } from '../src/dns/packet';
+import { buildDnsQuery, decodeBase64Url, encodeBase64Url, encodeDomainName, parseDnsMessage } from '../src/dns/packet';
 import { formatUtc8DateTime, getUtc8DateKey, StatsCounter } from '../src/stats/index';
 
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
@@ -35,6 +35,47 @@ describe('DNS over HTTPS worker', () => {
     expect(second.headers.get('X-DNS-Cache')).toBe('HIT');
     expect(new Uint8Array(await second.arrayBuffer()).slice(0, 2)).toEqual(new Uint8Array([0x22, 0x22]));
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('decrements cached record TTLs and exposes the remaining cache lifetime', async () => {
+    const now = Date.UTC(2026, 6, 1, 12, 0, 0);
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+
+    const firstQuery = buildDnsQuery({ id: 0x1717, name: 'aged-cache.example', type: 1 });
+    const secondQuery = buildDnsQuery({ id: 0x2828, name: 'aged-cache.example', type: 1 });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(buildAResponse('aged-cache.example', 0x1717, '203.0.113.17', 120), {
+        headers: { 'Content-Type': 'application/dns-message' },
+      }),
+    );
+
+    const first = await dispatch(`/dns-query?dns=${encodeBase64Url(firstQuery)}`);
+    expect(first.headers.get('X-DNS-Cache-TTL')).toBe('120');
+
+    vi.mocked(Date.now).mockReturnValue(now + 35_000);
+    const second = await dispatch(`/dns-query?dns=${encodeBase64Url(secondQuery)}`);
+    expect(second.status).toBe(200);
+    expect(second.headers.get('X-DNS-Cache')).toBe('HIT');
+    expect(second.headers.get('X-DNS-Cache-TTL')).toBe('85');
+    expect(parseDnsMessage(new Uint8Array(await second.arrayBuffer())).answers[0].ttl).toBe(85);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not extend an upstream TTL with a cache minimum TTL configuration', async () => {
+    const query = buildDnsQuery({ id: 0x3838, name: 'no-minimum-extension.example', type: 1 });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(buildAResponse('no-minimum-extension.example', 0x3838, '203.0.113.18', 30), {
+        headers: { 'Content-Type': 'application/dns-message' },
+      }),
+    );
+
+    const response = await dispatch(`/dns-query?dns=${encodeBase64Url(query)}`, undefined, {
+      DOH_CACHE_MIN_TTL: '300',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('X-DNS-Cache')).toBe('MISS');
+    expect(response.headers.get('X-DNS-Cache-TTL')).toBe('30');
   });
 
   it('handles POST /dns-query with application/dns-message', async () => {

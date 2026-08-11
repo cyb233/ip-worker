@@ -1,5 +1,6 @@
 import { DohConfig, getDohConfig, type WorkerConfigEnv } from '@/config';
 import {
+  decrementResourceRecordTtls,
   DnsMessage,
   encodeBase64Url,
   getTransactionId,
@@ -33,16 +34,25 @@ export async function resolveDnsQuery(
   if (config.cacheEnabled) {
     const cachedResponse = await caches.default.match(cacheRequest);
     if (cachedResponse) {
-      const normalizedResponse: Uint8Array<ArrayBuffer> = new Uint8Array(await cachedResponse.arrayBuffer());
-      const responseBytes = withTransactionId(normalizedResponse, requestId);
-      const response = validateDnsResponse(query, responseBytes);
-      return {
-        responseBytes,
-        response,
-        cacheStatus: 'HIT',
-        cacheTtl: parseCacheControlTtl(cachedResponse.headers.get('Cache-Control')),
-        upstreamHost: config.upstreamUrl.hostname,
-      };
+      const cacheAgeSeconds = getCacheAgeSeconds(cachedResponse.headers.get('X-DNS-Cached-At'));
+      const cacheTtl = getRemainingCacheTtl(cachedResponse.headers.get('Cache-Control'), cacheAgeSeconds);
+      if (cacheTtl === undefined || cacheTtl <= 0) {
+        await caches.default.delete(cacheRequest);
+      } else {
+        const normalizedResponse = decrementResourceRecordTtls(
+          new Uint8Array(await cachedResponse.arrayBuffer()),
+          cacheAgeSeconds,
+        );
+        const responseBytes = withTransactionId(normalizedResponse, requestId);
+        const response = validateDnsResponse(query, responseBytes);
+        return {
+          responseBytes,
+          response,
+          cacheStatus: 'HIT',
+          cacheTtl,
+          upstreamHost: config.upstreamUrl.hostname,
+        };
+      }
     }
   }
 
@@ -63,6 +73,7 @@ export async function resolveDnsQuery(
     headers: {
       'Content-Type': 'application/dns-message',
       'Cache-Control': `public, max-age=${cacheTtl}`,
+      'X-DNS-Cached-At': String(Date.now()),
     },
   });
 
@@ -84,9 +95,7 @@ function buildCacheRequest(queryBytes: Uint8Array): Request {
 
 function getCacheTtl(response: DnsMessage, config: DohConfig): number | undefined {
   if (response.rcode === 0 && response.answers.length > 0) {
-    const rawTtl = Math.min(...response.answers.map((record) => record.ttl));
-    const ttl = clamp(rawTtl, config.cacheMinTtl, config.cacheMaxTtl);
-    return ttl > 0 ? ttl : undefined;
+    return capCacheTtl(Math.min(...response.answers.map((record) => record.ttl)), config.cacheMaxTtl);
   }
 
   if (response.answers.length > 0 || (response.rcode !== 0 && response.rcode !== 3)) {
@@ -98,9 +107,28 @@ function getCacheTtl(response: DnsMessage, config: DohConfig): number | undefine
     return undefined;
   }
 
-  const rawTtl = Math.min(soa.ttl, soa.parsedData.minimum);
-  const ttl = clamp(rawTtl, config.cacheMinTtl, Math.min(config.cacheMaxTtl, config.cacheNegativeMaxTtl));
-  return ttl > 0 ? ttl : undefined;
+  return capCacheTtl(
+    Math.min(soa.ttl, soa.parsedData.minimum),
+    Math.min(config.cacheMaxTtl, config.cacheNegativeMaxTtl),
+  );
+}
+
+function getRemainingCacheTtl(cacheControl: string | null, cacheAgeSeconds: number): number | undefined {
+  const maxAge = parseCacheControlTtl(cacheControl);
+  return maxAge === undefined ? undefined : Math.max(maxAge - cacheAgeSeconds, 0);
+}
+
+function getCacheAgeSeconds(cachedAt: string | null): number {
+  if (!cachedAt) {
+    return 0;
+  }
+
+  const cachedAtMilliseconds = Number.parseInt(cachedAt, 10);
+  if (!Number.isFinite(cachedAtMilliseconds) || Number.isNaN(cachedAtMilliseconds)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor((Date.now() - cachedAtMilliseconds) / 1000));
 }
 
 function parseCacheControlTtl(value: string | null): number | undefined {
@@ -117,6 +145,7 @@ function parseCacheControlTtl(value: string | null): number | undefined {
   return Number.isNaN(ttl) ? undefined : ttl;
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
+function capCacheTtl(value: number, max: number): number | undefined {
+  const ttl = Math.min(value, max);
+  return ttl > 0 ? ttl : undefined;
 }

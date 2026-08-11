@@ -2,7 +2,6 @@ export interface DohEnv {
   DOH_UPSTREAM_URL?: string;
   DOH_TIMEOUT_MS?: string;
   DOH_CACHE_ENABLED?: string;
-  DOH_CACHE_MIN_TTL?: string;
   DOH_CACHE_MAX_TTL?: string;
   DOH_CACHE_NEGATIVE_MAX_TTL?: string;
   DNS_API_KEY?: string;
@@ -16,7 +15,6 @@ export interface DohConfig {
   upstreamUrl: URL;
   timeoutMs: number;
   cacheEnabled: boolean;
-  cacheMinTtl: number;
   cacheMaxTtl: number;
   cacheNegativeMaxTtl: number;
 }
@@ -24,7 +22,6 @@ export interface DohConfig {
 const DEFAULT_DOH_UPSTREAM_URL = 'https://cloudflare-dns.com/dns-query';
 const DEFAULT_DOH_TIMEOUT_MS = 5000;
 const DEFAULT_DOH_CACHE_ENABLED = true;
-const DEFAULT_DOH_CACHE_MIN_TTL = 0;
 const DEFAULT_DOH_CACHE_MAX_TTL = 86400;
 const DEFAULT_DOH_CACHE_NEGATIVE_MAX_TTL = 300;
 
@@ -32,7 +29,6 @@ export function getDohConfig(env: WorkerConfigEnv): DohConfig {
   const upstreamUrl = parseHttpsUrl(env.DOH_UPSTREAM_URL, DEFAULT_DOH_UPSTREAM_URL);
   const timeoutMs = parseInteger(env.DOH_TIMEOUT_MS, DEFAULT_DOH_TIMEOUT_MS, 'DOH_TIMEOUT_MS', 1);
   const cacheEnabled = parseBoolean(env.DOH_CACHE_ENABLED, DEFAULT_DOH_CACHE_ENABLED, 'DOH_CACHE_ENABLED');
-  const cacheMinTtl = parseInteger(env.DOH_CACHE_MIN_TTL, DEFAULT_DOH_CACHE_MIN_TTL, 'DOH_CACHE_MIN_TTL', 0);
   const cacheMaxTtl = parseInteger(env.DOH_CACHE_MAX_TTL, DEFAULT_DOH_CACHE_MAX_TTL, 'DOH_CACHE_MAX_TTL', 0);
   const cacheNegativeMaxTtl = parseInteger(
     env.DOH_CACHE_NEGATIVE_MAX_TTL,
@@ -41,15 +37,10 @@ export function getDohConfig(env: WorkerConfigEnv): DohConfig {
     0,
   );
 
-  if (cacheMinTtl > cacheMaxTtl) {
-    throw new Error('DOH_CACHE_MIN_TTL must be less than or equal to DOH_CACHE_MAX_TTL');
-  }
-
   return {
     upstreamUrl,
     timeoutMs,
     cacheEnabled,
-    cacheMinTtl,
     cacheMaxTtl,
     cacheNegativeMaxTtl,
   };

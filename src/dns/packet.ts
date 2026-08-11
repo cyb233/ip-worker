@@ -300,6 +300,50 @@ export function withTransactionId(input: Uint8Array<ArrayBufferLike> | ArrayBuff
   return raw;
 }
 
+export function decrementResourceRecordTtls(
+  input: Uint8Array<ArrayBufferLike> | ArrayBuffer,
+  elapsedSeconds: number,
+): Uint8Array<ArrayBuffer> {
+  const raw = new Uint8Array(toUint8Array(input));
+  if (!Number.isInteger(elapsedSeconds) || elapsedSeconds < 0) {
+    throw new Error('Elapsed DNS cache time must be a non-negative integer');
+  }
+
+  ensureRange(raw, 0, DNS_HEADER_LENGTH, 'DNS message is too short');
+  if (elapsedSeconds === 0) {
+    return raw;
+  }
+
+  const view = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+  const questionCount = view.getUint16(4);
+  const recordCount = view.getUint16(6) + view.getUint16(8) + view.getUint16(10);
+  let offset = DNS_HEADER_LENGTH;
+
+  for (let index = 0; index < questionCount; index += 1) {
+    offset = readName(raw, offset).offset;
+    ensureRange(raw, offset, 4, 'DNS question is truncated');
+    offset += 4;
+  }
+
+  for (let index = 0; index < recordCount; index += 1) {
+    offset = readName(raw, offset).offset;
+    ensureRange(raw, offset, 10, 'DNS resource record header is truncated');
+
+    const type = view.getUint16(offset);
+    if (type !== DNS_TYPE_OPT) {
+      const ttl = view.getUint32(offset + 4);
+      view.setUint32(offset + 4, Math.max(ttl - elapsedSeconds, 0));
+    }
+
+    const dataLength = view.getUint16(offset + 8);
+    offset += 10;
+    ensureRange(raw, offset, dataLength, 'DNS resource record data is truncated');
+    offset += dataLength;
+  }
+
+  return raw;
+}
+
 export function encodeBase64Url(input: Uint8Array<ArrayBufferLike> | ArrayBuffer): string {
   const raw = toUint8Array(input);
   let binary = '';
