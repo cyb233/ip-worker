@@ -70,6 +70,10 @@ footer {
   min-width: 0;
 }
 
+.dns-request-controls select {
+  min-width: 6em;
+}
+
 .dns-request-controls button {
   white-space: nowrap;
 }

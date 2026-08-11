@@ -2,6 +2,19 @@
   <div class="dns-request-demo">
     <div class="dns-request-controls">
       <input type="text" aria-label="域名" placeholder="请输入域名" sync:value="name">
+      <select aria-label="查询类型" sync:value="type">
+        <option value="A">A</option>
+        <option value="AAAA">AAAA</option>
+        <option value="CNAME">CNAME</option>
+        <option value="MX">MX</option>
+        <option value="NS">NS</option>
+        <option value="TXT">TXT</option>
+        <option value="SOA">SOA</option>
+        <option value="SRV">SRV</option>
+        <option value="CAA">CAA</option>
+        <option value="SVCB">SVCB</option>
+        <option value="HTTPS">HTTPS</option>
+      </select>
       <select aria-label="请求方式" sync:value="method">
         <option value="dns-query">dns-query</option>
         <option value="resolve">resolve</option>
@@ -18,6 +31,7 @@
     export default {
       data: {
         name: 'www.google.com',
+        type: 'A',
         method: 'dns-query',
         isLoading: false,
         result: '',
@@ -35,7 +49,7 @@
 
           try {
             if (this.method === 'resolve') {
-              const response = await fetch(`/resolve?name=${encodeURIComponent(name)}&type=A`, {
+              const response = await fetch(`/resolve?name=${encodeURIComponent(name)}&type=${encodeURIComponent(this.type)}`, {
                 headers: { Accept: 'application/dns-json' },
               });
               const text = await response.text();
@@ -43,7 +57,7 @@
               return;
             }
 
-            const query = this.buildDnsQuery(name);
+            const query = this.buildDnsQuery(name, this.type);
             const encodedQuery = this.encodeBase64Url(query);
             const response = await fetch(`/dns-query?dns=${encodedQuery}`, {
               headers: { Accept: 'application/dns-message' },
@@ -72,7 +86,25 @@
             return `HTTP ${response.status} ${response.statusText}\n${text}`.trim();
           }
         },
-        buildDnsQuery(name) {
+        buildDnsQuery(name, type = 'A') {
+          const typeCodes = {
+            A: 1,
+            NS: 2,
+            CNAME: 5,
+            SOA: 6,
+            PTR: 12,
+            MX: 15,
+            TXT: 16,
+            AAAA: 28,
+            SRV: 33,
+            SVCB: 64,
+            HTTPS: 65,
+            CAA: 257,
+          };
+          if (!typeCodes[type]) {
+            throw new Error('不支持的 DNS 查询类型。');
+          }
+
           const normalizedName = name.replace(/\.$/, '');
           const labels = normalizedName.split('.');
           const encodedLabels = labels.map((label) => {
@@ -100,7 +132,7 @@
             offset += label.length;
           }
           query[offset++] = 0;
-          view.setUint16(offset, 1);
+          view.setUint16(offset, typeCodes[type]);
           view.setUint16(offset + 2, 1);
           return query;
         },
