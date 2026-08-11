@@ -1,0 +1,217 @@
+<template component>
+  <div class="dns-request-demo">
+    <div class="dns-request-controls">
+      <input type="text" aria-label="域名" placeholder="请输入域名" sync:value="name">
+      <select aria-label="请求方式" sync:value="method">
+        <option value="dns-query">dns-query</option>
+        <option value="resolve">resolve</option>
+      </select>
+      <button type="button" on:click="queryDns()" attr:disabled="isLoading">
+        <span :text="isLoading ? '查询中...' : '查询'"></span>
+      </button>
+    </div>
+    <div>查询结果：</div>
+    <pre :text="result" attr:class="result ? '' : 'hidden'"></pre>
+  </div>
+
+  <script>
+    export default {
+      data: {
+        name: 'www.google.com',
+        method: 'dns-query',
+        isLoading: false,
+        result: '',
+      },
+      proto: {
+        async queryDns() {
+          const name = this.name.trim();
+          if (!name) {
+            this.result = '请输入要查询的域名。';
+            return;
+          }
+
+          this.isLoading = true;
+          this.result = '';
+
+          try {
+            if (this.method === 'resolve') {
+              const response = await fetch(`/resolve?name=${encodeURIComponent(name)}&type=A`, {
+                headers: { Accept: 'application/dns-json' },
+              });
+              const text = await response.text();
+              this.result = this.formatResponse(response, text);
+              return;
+            }
+
+            const query = this.buildDnsQuery(name);
+            const encodedQuery = this.encodeBase64Url(query);
+            const response = await fetch(`/dns-query?dns=${encodedQuery}`, {
+              headers: { Accept: 'application/dns-message' },
+            });
+            const responseBytes = new Uint8Array(await response.arrayBuffer());
+
+            if (!response.ok) {
+              this.result = this.formatResponse(response, new TextDecoder().decode(responseBytes));
+              return;
+            }
+
+            this.result = JSON.stringify({
+              endpoint: `/dns-query?dns=${encodedQuery}`,
+              response: this.parseDnsResponse(responseBytes),
+            }, null, 2);
+          } catch (error) {
+            this.result = `查询失败：${error.message || error}`;
+          } finally {
+            this.isLoading = false;
+          }
+        },
+        formatResponse(response, text) {
+          try {
+            return JSON.stringify(JSON.parse(text), null, 2);
+          } catch {
+            return `HTTP ${response.status} ${response.statusText}\n${text}`.trim();
+          }
+        },
+        buildDnsQuery(name) {
+          const normalizedName = name.replace(/\.$/, '');
+          const labels = normalizedName.split('.');
+          const encodedLabels = labels.map((label) => {
+            const bytes = new TextEncoder().encode(label);
+            if (!bytes.length || bytes.length > 63) {
+              throw new Error('域名标签长度必须在 1 到 63 字节之间。');
+            }
+            return bytes;
+          });
+          const length = 12 + encodedLabels.reduce((total, label) => total + label.length + 1, 1) + 4;
+          if (length > 512) {
+            throw new Error('域名过长。');
+          }
+
+          const query = new Uint8Array(length);
+          const view = new DataView(query.buffer);
+          view.setUint16(0, crypto.getRandomValues(new Uint16Array(1))[0]);
+          view.setUint16(2, 0x0100);
+          view.setUint16(4, 1);
+
+          let offset = 12;
+          for (const label of encodedLabels) {
+            query[offset++] = label.length;
+            query.set(label, offset);
+            offset += label.length;
+          }
+          query[offset++] = 0;
+          view.setUint16(offset, 1);
+          view.setUint16(offset + 2, 1);
+          return query;
+        },
+        encodeBase64Url(bytes) {
+          let binary = '';
+          for (const byte of bytes) binary += String.fromCharCode(byte);
+          return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        },
+        parseDnsResponse(bytes) {
+          if (bytes.length < 12) {
+            throw new Error('DNS 响应长度无效。');
+          }
+
+          const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+          const flags = view.getUint16(2);
+          let offset = 12;
+          const questions = [];
+          const answers = [];
+          const authority = [];
+          const additional = [];
+          const sectionCounts = [view.getUint16(4), view.getUint16(6), view.getUint16(8), view.getUint16(10)];
+
+          const readName = () => {
+            const labels = [];
+            let position = offset;
+            let jumped = false;
+            const seen = new Set();
+
+            while (position < bytes.length) {
+              const length = bytes[position++];
+              if (!length) {
+                if (!jumped) offset = position;
+                return labels.join('.') + '.';
+              }
+              if ((length & 0xc0) === 0xc0) {
+                if (position >= bytes.length) throw new Error('DNS 名称指针无效。');
+                const pointer = ((length & 0x3f) << 8) | bytes[position++];
+                if (seen.has(pointer)) throw new Error('DNS 名称指针循环。');
+                seen.add(pointer);
+                if (!jumped) offset = position;
+                position = pointer;
+                jumped = true;
+                continue;
+              }
+              if ((length & 0xc0) || position + length > bytes.length) {
+                throw new Error('DNS 名称无效。');
+              }
+              labels.push(new TextDecoder().decode(bytes.slice(position, position + length)));
+              position += length;
+            }
+            throw new Error('DNS 名称超出响应范围。');
+          };
+
+          const readRecord = () => {
+            const name = readName();
+            if (offset + 10 > bytes.length) throw new Error('DNS 记录不完整。');
+            const type = view.getUint16(offset);
+            const recordClass = view.getUint16(offset + 2);
+            const ttl = view.getUint32(offset + 4);
+            const dataLength = view.getUint16(offset + 8);
+            offset += 10;
+            const dataOffset = offset;
+            if (offset + dataLength > bytes.length) throw new Error('DNS 记录数据不完整。');
+            offset += dataLength;
+
+            let data;
+            if (type === 1 && dataLength === 4) {
+              data = Array.from(bytes.slice(dataOffset, dataOffset + dataLength)).join('.');
+            } else if (type === 28 && dataLength === 16) {
+              const segments = [];
+              for (let index = 0; index < 16; index += 2) {
+                segments.push(view.getUint16(dataOffset + index).toString(16));
+              }
+              data = segments.join(':');
+            } else if ([2, 5, 12].includes(type)) {
+              const savedOffset = offset;
+              offset = dataOffset;
+              data = readName();
+              offset = savedOffset;
+            } else {
+              data = this.encodeBase64Url(bytes.slice(dataOffset, dataOffset + dataLength));
+            }
+
+            return { name, type, class: recordClass, TTL: ttl, data };
+          };
+
+          for (let index = 0; index < sectionCounts[0]; index++) {
+            const name = readName();
+            if (offset + 4 > bytes.length) throw new Error('DNS 问题不完整。');
+            questions.push({ name, type: view.getUint16(offset), class: view.getUint16(offset + 2) });
+            offset += 4;
+          }
+          for (let index = 0; index < sectionCounts[1]; index++) answers.push(readRecord());
+          for (let index = 0; index < sectionCounts[2]; index++) authority.push(readRecord());
+          for (let index = 0; index < sectionCounts[3]; index++) additional.push(readRecord());
+
+          return {
+            id: view.getUint16(0),
+            Status: flags & 0x000f,
+            TC: Boolean(flags & 0x0200),
+            RD: Boolean(flags & 0x0100),
+            RA: Boolean(flags & 0x0080),
+            AD: Boolean(flags & 0x0020),
+            CD: Boolean(flags & 0x0010),
+            Question: questions,
+            Answer: answers,
+            Authority: authority,
+            Additional: additional,
+          };
+        },
+      },
+    };
+  </script>
+</template>

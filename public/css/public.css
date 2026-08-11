@@ -58,3 +58,32 @@ footer {
 .hidden {
   display: none;
 }
+
+.dns-request-controls {
+  display: flex;
+  gap: 0.5em;
+  align-items: center;
+}
+
+.dns-request-controls input {
+  flex: 1;
+  min-width: 0;
+}
+
+.dns-request-controls button {
+  white-space: nowrap;
+}
+
+.dns-request-demo pre {
+  min-height: 1.7em;
+}
+
+@media (max-width: 480px) {
+  .dns-request-controls {
+    flex-wrap: wrap;
+  }
+
+  .dns-request-controls input {
+    flex-basis: 100%;
+  }
+}
